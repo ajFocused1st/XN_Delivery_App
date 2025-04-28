@@ -1314,7 +1314,7 @@
                       bookBtn.textContent = 'Processing...'; bookBtn.disabled = true; document.getElementById('downloadSummaryBtn').disabled = true;
                       try {
                           // *** IMPORTANT: Replace with your DEPLOYED backend URL for Stripe ***
-                          const backendUrl = 'http://localhost:4242/create-checkout-session'; // For local testing
+                          const backendUrl = 'https://xn-delivery-backend.onrender.com/create-checkout-session'; // For local testing
                           console.log(`Attempting to fetch from: ${backendUrl}`);
                           const response = await fetch(backendUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ contactDetails: { name: customerName, email: customerEmail, phone: customerPhone, company: customerCompany }, stopsData: stopsDataForBackend, packagesData: packagesData, serviceDetails: serviceDetails, totalMiles: totalMiles, calculatedQuote: parseFloat(quoteAmount) }),

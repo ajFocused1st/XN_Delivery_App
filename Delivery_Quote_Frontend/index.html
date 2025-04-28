@@ -885,7 +885,7 @@
         bookBtn.disabled = true;
 
         try {
-            const backendUrl = 'http://localhost:4242/create-checkout-session';
+            const backendUrl = 'https://xn-delivery-backend.onrender.com/create-checkout-session';
             console.log(`Attempting to fetch from: ${backendUrl}`);
 
             const response = await fetch(backendUrl, {
