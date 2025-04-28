@@ -11,20 +11,21 @@ const app = express();
 
 // --- Middleware ---
 
-// ** MODIFIED CORS Configuration - More Explicit **
+// ** CORS Configuration **
 const corsOptions = {
   // For production, replace '*' with your specific frontend origin:
-  // origin: process.env.YOUR_WEBSITE_URL,
-  origin: '*', // Allow all origins for testing
+  // origin: process.env.YOUR_WEBSITE_URL || 'https://your-frontend-domain.com',
+  origin: process.env.YOUR_WEBSITE_URL || '*', // Allow configured origin or wildcard for testing
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS", // Explicitly allow methods
   allowedHeaders: "Content-Type, Authorization, X-Requested-With", // Explicitly allow common headers
-  credentials: true, // Allow cookies if needed later (usually not for simple POST)
-  optionsSuccessStatus: 204 // Return 204 No Content for successful preflight OPTIONS requests
+  credentials: true,
+  optionsSuccessStatus: 204 // Return 204 No Content for successful preflight
 };
+// Apply CORS middleware globally BEFORE any routes
 app.use(cors(corsOptions));
-// Ensure Express handles OPTIONS requests globally *before* other routes
-// This might be redundant with the cors middleware handling it, but can sometimes help.
-app.options('*', cors(corsOptions)); // Handle preflight requests for all routes
+
+// ** REMOVED app.options('*', cors(corsOptions)); **
+// The app.use(cors(corsOptions)) should handle preflight requests.
 
 // Parse JSON bodies sent by the frontend
 app.use(express.json());
@@ -44,9 +45,8 @@ ensureLeadsFileExists();
 
 // --- API Endpoint for Creating Stripe Checkout Session AND Logging Lead ---
 app.post('/create-checkout-session', async (req, res) => {
-  // Add a log right at the beginning to see if POST request hits
   console.log(`POST /create-checkout-session received at ${new Date().toISOString()}`);
-  console.log("Request Body:", req.body); // Log the received body
+  // console.log("Request Body:", req.body); // Log body if needed for debugging
 
   const { calculatedQuote, contactDetails, stopsData, packagesData, serviceDetails, totalMiles } = req.body;
 
@@ -66,9 +66,9 @@ app.post('/create-checkout-session', async (req, res) => {
     const contactPhone = formatCSVField(contactDetails.phone);
     const contactCompany = formatCSVField(contactDetails.company);
     let allStopsString = '"No stop details provided"';
-    if (stopsData && stopsData.length > 0) { /* ... serialization ... */ allStopsString = formatCSVField(stopsData.map(stop => { const address = (stop.address || 'N/A').replace(/\|/g, '/').replace(/;/g, ','); let loadUnload = stop.loadUnload || 'N/A'; if (loadUnload === 'driver') loadUnload = 'Driver'; else if (loadUnload === 'customer') loadUnload = 'Customer'; else if (loadUnload === 'driver_assist') loadUnload = 'Driver Assist'; let stairsInfoString = 'No'; if (stop.stairs) { stairsInfoString = `Yes, Fl: ${stop.floor || 'N/A'}`; } return `${address}|${loadUnload}|${stairsInfoString}`; }).join(';')); }
+    if (stopsData && stopsData.length > 0) { allStopsString = formatCSVField(stopsData.map(stop => { const address = (stop.address || 'N/A').replace(/\|/g, '/').replace(/;/g, ','); let loadUnload = stop.loadUnload || 'N/A'; if (loadUnload === 'driver') loadUnload = 'Driver'; else if (loadUnload === 'customer') loadUnload = 'Customer'; else if (loadUnload === 'driver_assist') loadUnload = 'Driver Assist'; let stairsInfoString = 'No'; if (stop.stairs) { stairsInfoString = `Yes, Fl: ${stop.floor || 'N/A'}`; } return `${address}|${loadUnload}|${stairsInfoString}`; }).join(';')); }
     let packagesStr = '"No package details provided"';
-    if (packagesData && packagesData.length > 0) { /* ... serialization ... */ packagesStr = formatCSVField(packagesData.map(p => { const cleanDesc = (p.desc || 'N/A').replace(/\|/g, '/').replace(/;/g, ','); return `Qty:${p.qty || 'N/A'}, Desc:${cleanDesc}, Wt:${p.weight || 'N/A'}lbs, Dim:${p.length || 'N/A'}x${p.width || 'N/A'}x${p.height || 'N/A'} ${p.unit || 'N/A'}`; }).join('; ')); }
+    if (packagesData && packagesData.length > 0) { packagesStr = formatCSVField(packagesData.map(p => { const cleanDesc = (p.desc || 'N/A').replace(/\|/g, '/').replace(/;/g, ','); return `Qty:${p.qty || 'N/A'}, Desc:${cleanDesc}, Wt:${p.weight || 'N/A'}lbs, Dim:${p.length || 'N/A'}x${p.width || 'N/A'}x${p.height || 'N/A'} ${p.unit || 'N/A'}`; }).join('; ')); }
     const vehicleType = formatCSVField(serviceDetails.vehicleType);
     const pickupDate = formatCSVField(serviceDetails.pickupDate);
     const pickupTime = formatCSVField(serviceDetails.pickupTime);
@@ -81,7 +81,6 @@ app.post('/create-checkout-session', async (req, res) => {
     const quoteFormatted = formatCSVField(`$${calculatedQuote !== undefined && calculatedQuote !== null ? parseFloat(calculatedQuote).toFixed(2) : ''}`);
     const csvRow = [ formatCSVField(timestamp), contactName, contactEmail, contactPhone, contactCompany, allStopsString, packagesStr, vehicleType, pickupDate, pickupTime, urgency, insideDelivery, hazardous, bioHazardous, extraLaborer, totalMilesFormatted, quoteFormatted ].join(',') + '\n';
 
-    // Use asynchronous appendFile
     fs.appendFile(leadsFilePath, csvRow, 'utf8', (err) => {
       if (err) { console.error("Error appending data to leads file (Stripe process will continue):", err); }
       else { console.log("Lead data successfully appended to", leadsFilePath); }
@@ -94,7 +93,11 @@ app.post('/create-checkout-session', async (req, res) => {
   const amountInCents = Math.round(parseFloat(calculatedQuote) * 100);
   if (amountInCents < 50) { return res.status(400).json({ error: 'Quote amount below minimum charge.' }); }
   const YOUR_DOMAIN = process.env.YOUR_WEBSITE_URL;
-  if (!YOUR_DOMAIN) { return res.status(500).json({ error: 'Server config error (Website URL missing).' }); }
+  // ** Important Check for YOUR_WEBSITE_URL **
+  if (!YOUR_DOMAIN || YOUR_DOMAIN === 'http://temp.com') {
+      console.error("CRITICAL: YOUR_WEBSITE_URL environment variable is not set correctly in Render!");
+      return res.status(500).json({ error: 'Server configuration error (Website URL missing or incorrect).' });
+  }
   const successUrl = `${YOUR_DOMAIN}/payment-success.html?session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${YOUR_DOMAIN}/payment-cancelled.html`;
 
@@ -121,5 +124,5 @@ app.get('/', (req, res) => {
 });
 
 // Start the server
-const PORT = process.env.PORT || 4242;
+const PORT = process.env.PORT || 10000; // Render provides PORT env var, default removed
 app.listen(PORT, () => console.log(`Backend server listening on port ${PORT}`));
