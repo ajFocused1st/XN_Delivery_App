@@ -3,7 +3,7 @@
 require('dotenv').config();
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-// const cors = require('cors'); // We will set headers manually
+const cors = require('cors'); // Re-import CORS middleware
 const fs = require('fs');
 const path = require('path');
 
@@ -11,32 +11,11 @@ const app = express();
 
 // --- Middleware ---
 
-// ** NEW: Manual CORS Headers Middleware **
-// Apply this BEFORE any other middleware or routes
-app.use((req, res, next) => {
-  // ** FORCED WILDCARD FOR TESTING **
-  const allowedOrigin = '*'; // Force allow all origins temporarily
-  // const allowedOrigin = process.env.YOUR_WEBSITE_URL || '*'; // Original line
-  console.log(`Manual CORS: Setting Allow-Origin to: ${allowedOrigin}`);
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+// ** USE SIMPLEST CORS MIDDLEWARE **
+app.use(cors());
+console.log("Applied simplest cors() middleware.");
 
-  // Set allowed methods
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-
-  // Set allowed headers
-  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type, Authorization');
-
-  // Handle the preflight OPTIONS request explicitly
-  if (req.method === 'OPTIONS') {
-    console.log('Manual CORS: Handling OPTIONS preflight request');
-    return res.sendStatus(204); // Send 204 No Content
-  }
-
-  // Pass to next middleware
-  next();
-});
-
-// Parse JSON bodies sent by the frontend (AFTER CORS headers are set)
+// Parse JSON bodies sent by the frontend (AFTER CORS)
 app.use(express.json());
 
 // --- File Logging Configuration ---
@@ -55,6 +34,8 @@ ensureLeadsFileExists();
 // --- API Endpoint for Creating Stripe Checkout Session AND Logging Lead ---
 app.post('/create-checkout-session', async (req, res) => {
   console.log(`POST /create-checkout-session received at ${new Date().toISOString()}`);
+  // console.log("Request Body:", req.body); // Log body if needed
+
   const { calculatedQuote, contactDetails, stopsData, packagesData, serviceDetails, totalMiles } = req.body;
 
   // Basic Validation
@@ -99,11 +80,9 @@ app.post('/create-checkout-session', async (req, res) => {
   const orderSummary = `Delivery: ${stopsData.length} stops, ${packagesData.length} pkg types. Miles: ${totalMiles?.toFixed(1) || 'N/A'}`;
   const amountInCents = Math.round(parseFloat(calculatedQuote) * 100);
   if (amountInCents < 50) { return res.status(400).json({ error: 'Quote amount below minimum charge.' }); }
-  // Use the env var for redirect URLs, but CORS is now handled by '*' above
   const YOUR_DOMAIN = process.env.YOUR_WEBSITE_URL;
   if (!YOUR_DOMAIN || YOUR_DOMAIN === 'http://temp.com') {
       console.error("CRITICAL: YOUR_WEBSITE_URL environment variable is not set correctly in Render for redirects!");
-      // Still allow Stripe attempt but log critical error
   }
   const successUrl = `${YOUR_DOMAIN || 'https://fallback-url.com'}/payment-success.html?session_id={CHECKOUT_SESSION_ID}`; // Add fallback
   const cancelUrl = `${YOUR_DOMAIN || 'https://fallback-url.com'}/payment-cancelled.html`; // Add fallback
@@ -111,23 +90,45 @@ app.post('/create-checkout-session', async (req, res) => {
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [ { price_data: { currency: 'usd', product_data: { name: 'Delivery Service Quote', description: orderSummary, }, unit_amount: amountInCents, }, quantity: 1, }, ],
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: 'Delivery Service Quote',
+              description: orderSummary,
+            },
+            unit_amount: amountInCents,
+          },
+          quantity: 1,
+        },
+      ],
       mode: 'payment',
-      success_url: successUrl, cancel_url: cancelUrl,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       customer_email: customerEmail || undefined,
-      payment_intent_data: { tip: { amount_eligible: amountInCents, suggested_amounts: [ Math.round(amountInCents * 0.10), Math.round(amountInCents * 0.15), Math.round(amountInCents * 0.20) ], custom_amount: { enabled: true, minimum_amount: 100 }, }, metadata: { tip_intended_for: 'Driver', quote_amount_cents: amountInCents } },
+      // ** REMOVED/COMMENTED OUT TIPPING CONFIGURATION **
+      // payment_intent_data: {
+      //   tip: {
+      //     amount_eligible: amountInCents,
+      //     suggested_amounts: [ Math.round(amountInCents * 0.10), Math.round(amountInCents * 0.15), Math.round(amountInCents * 0.20) ],
+      //     custom_amount: { enabled: true, minimum_amount: 100 },
+      //   },
+      //   metadata: { tip_intended_for: 'Driver', quote_amount_cents: amountInCents }
+      // },
     });
     console.log("Stripe Session Created:", session.id);
     res.json({ url: session.url }); // Send session URL back
   } catch (stripeError) {
     console.error('Stripe API Error:', stripeError);
+    // Send specific Stripe error message back to frontend if possible
     res.status(500).json({ error: `Failed to create payment session: ${stripeError.message}` });
   }
 });
 
 // Basic Root Route
 app.get('/', (req, res) => {
-    res.send('Delivery Quote Backend Server (Combined Stripe & Logging - Manual CORS *) is Running!');
+    res.send('Delivery Quote Backend Server (Combined Stripe & Logging - Simple CORS) is Running!');
 });
 
 // Start the server
