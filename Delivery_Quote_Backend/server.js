@@ -11,23 +11,40 @@ const app = express();
 
 // --- Middleware ---
 
-// ** CORS Configuration **
+// server.js - Enhanced CORS Logging
+
+console.log(`Server starting...`);
+// Log the env var value the server sees on startup
+console.log(`Attempting to read YOUR_WEBSITE_URL from env: ${process.env.YOUR_WEBSITE_URL}`);
+
 const corsOptions = {
-  // For production, replace '*' with your specific frontend origin:
-  // origin: process.env.YOUR_WEBSITE_URL || 'https://your-frontend-domain.com',
-  origin: process.env.YOUR_WEBSITE_URL || '*', // Allow configured origin or wildcard for testing
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS", // Explicitly allow methods
-  allowedHeaders: "Content-Type, Authorization, X-Requested-With", // Explicitly allow common headers
+  origin: function (origin, callback) {
+    // Log the origin of the incoming request (this is crucial!)
+    console.log(`CORS Check: Request Origin Header: ${origin}`);
+    const allowedOrigin = process.env.YOUR_WEBSITE_URL;
+    console.log(`CORS Check: Allowed Origin from env: ${allowedOrigin}`);
+
+    // Check if the incoming origin matches the allowed one from env vars
+    // Allow requests with no origin (like mobile apps, curl) or from the specific allowed origin
+    if (!origin || origin === allowedOrigin) {
+      console.log(`CORS Check: Origin Allowed.`);
+      callback(null, true); // Allow the request
+    } else {
+      console.error(`CORS Check: Origin Denied.`);
+      callback(new Error('Not allowed by CORS')); // Deny the request
+    }
+  },
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+  allowedHeaders: "Content-Type, Authorization, X-Requested-With",
   credentials: true,
-  optionsSuccessStatus: 204 // Return 204 No Content for successful preflight
+  optionsSuccessStatus: 204 // Important for preflight requests
 };
+
 // Apply CORS middleware globally BEFORE any routes
 app.use(cors(corsOptions));
+console.log("CORS middleware applied with enhanced logging.");
 
-// ** REMOVED app.options('*', cors(corsOptions)); **
-// The app.use(cors(corsOptions)) should handle preflight requests.
-
-// Parse JSON bodies sent by the frontend
+// Parse JSON bodies sent by the frontend (keep this after CORS)
 app.use(express.json());
 
 // --- File Logging Configuration ---
