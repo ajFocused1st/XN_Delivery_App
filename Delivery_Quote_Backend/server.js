@@ -78,29 +78,27 @@ app.post('/create-checkout-session', async (req, res) => {
 
   // --- Create Stripe Session ---
   const customerEmail = contactDetails.email;
-
-  // ** NEW: Create more detailed order summary for Stripe **
-  let orderSummary = `Delivery Quote: ${stopsData.length} stops (${(totalMiles || 0).toFixed(1)} miles). `;
-  orderSummary += `Pickup: ${serviceDetails.pickupDate || 'N/A'} at ${serviceDetails.pickupTime || 'N/A'}. `;
-  orderSummary += `Vehicle: ${serviceDetails.vehicleType || 'N/A'}. `;
-  // Add first stop address (limit length)
-  if (stopsData[0]?.address) {
-      orderSummary += `First Stop: ${stopsData[0].address.substring(0, 50)}${stopsData[0].address.length > 50 ? '...' : ''}.`;
-  }
-  // Keep description reasonably short for Stripe UI
-  orderSummary = orderSummary.substring(0, 200); // Example length limit
-
-  console.log("Generated Stripe Description:", orderSummary);
-  // ** End of new summary generation **
+  const orderSummary = `Delivery Quote: ${stopsData.length} stops (${(totalMiles || 0).toFixed(1)} miles). Pickup: ${serviceDetails.pickupDate || 'N/A'} at ${serviceDetails.pickupTime || 'N/A'}. Vehicle: ${serviceDetails.vehicleType || 'N/A'}. First Stop: ${stopsData[0]?.address.substring(0, 50)}${stopsData[0]?.address.length > 50 ? '...' : ''}.`.substring(0, 200);
 
   const amountInCents = Math.round(parseFloat(calculatedQuote) * 100);
   if (amountInCents < 50) { return res.status(400).json({ error: 'Quote amount below minimum charge.' }); }
+
+  // Use the YOUR_WEBSITE_URL environment variable for success and cancel redirects
   const YOUR_DOMAIN = process.env.YOUR_WEBSITE_URL;
   if (!YOUR_DOMAIN || YOUR_DOMAIN === 'http://temp.com') {
       console.error("CRITICAL: YOUR_WEBSITE_URL environment variable is not set correctly in Render for redirects!");
+      // Consider returning an error if the domain is essential
+      // return res.status(500).json({ error: 'Server configuration error (Website URL missing or incorrect).' });
   }
+
+  // Define URLs - Success points to a success page, Cancel points back to the main frontend URL
   const successUrl = `${YOUR_DOMAIN || 'https://fallback-url.com'}/payment-success.html?session_id={CHECKOUT_SESSION_ID}`; // Add fallback
-  const cancelUrl = `${YOUR_DOMAIN || 'https://fallback-url.com'}/payment-cancelled.html`; // Add fallback
+  // ** MODIFIED cancelUrl **
+  const cancelUrl = YOUR_DOMAIN || 'https://fallback-url.com'; // Point back to the main frontend URL
+
+  console.log(`Stripe Success URL: ${successUrl}`);
+  console.log(`Stripe Cancel URL: ${cancelUrl}`);
+
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -110,8 +108,8 @@ app.post('/create-checkout-session', async (req, res) => {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: 'Xpedite Now Delivery Quote', // Slightly more specific name
-              description: orderSummary, // Use the new detailed summary
+              name: 'Xpedite Now Delivery Quote',
+              description: orderSummary,
             },
             unit_amount: amountInCents,
           },
@@ -120,7 +118,7 @@ app.post('/create-checkout-session', async (req, res) => {
       ],
       mode: 'payment',
       success_url: successUrl,
-      cancel_url: cancelUrl,
+      cancel_url: cancelUrl, // Use the updated cancel URL
       customer_email: customerEmail || undefined,
       // Tipping configuration removed previously
     });
