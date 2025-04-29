@@ -46,6 +46,7 @@ app.post('/create-checkout-session', async (req, res) => {
 
   // --- Log Lead Data ---
   try {
+    // ... (CSV logging logic remains the same) ...
     console.log("Attempting to log lead data...");
     const timestamp = new Date().toISOString();
     const formatCSVField = (field) => `"${(field || '').toString().replace(/"/g, '""')}"`;
@@ -77,7 +78,21 @@ app.post('/create-checkout-session', async (req, res) => {
 
   // --- Create Stripe Session ---
   const customerEmail = contactDetails.email;
-  const orderSummary = `Delivery: ${stopsData.length} stops, ${packagesData.length} pkg types. Miles: ${totalMiles?.toFixed(1) || 'N/A'}`;
+
+  // ** NEW: Create more detailed order summary for Stripe **
+  let orderSummary = `Delivery Quote: ${stopsData.length} stops (${(totalMiles || 0).toFixed(1)} miles). `;
+  orderSummary += `Pickup: ${serviceDetails.pickupDate || 'N/A'} at ${serviceDetails.pickupTime || 'N/A'}. `;
+  orderSummary += `Vehicle: ${serviceDetails.vehicleType || 'N/A'}. `;
+  // Add first stop address (limit length)
+  if (stopsData[0]?.address) {
+      orderSummary += `First Stop: ${stopsData[0].address.substring(0, 50)}${stopsData[0].address.length > 50 ? '...' : ''}.`;
+  }
+  // Keep description reasonably short for Stripe UI
+  orderSummary = orderSummary.substring(0, 200); // Example length limit
+
+  console.log("Generated Stripe Description:", orderSummary);
+  // ** End of new summary generation **
+
   const amountInCents = Math.round(parseFloat(calculatedQuote) * 100);
   if (amountInCents < 50) { return res.status(400).json({ error: 'Quote amount below minimum charge.' }); }
   const YOUR_DOMAIN = process.env.YOUR_WEBSITE_URL;
@@ -95,8 +110,8 @@ app.post('/create-checkout-session', async (req, res) => {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: 'Delivery Service Quote',
-              description: orderSummary,
+              name: 'Xpedite Now Delivery Quote', // Slightly more specific name
+              description: orderSummary, // Use the new detailed summary
             },
             unit_amount: amountInCents,
           },
@@ -107,21 +122,12 @@ app.post('/create-checkout-session', async (req, res) => {
       success_url: successUrl,
       cancel_url: cancelUrl,
       customer_email: customerEmail || undefined,
-      // ** REMOVED/COMMENTED OUT TIPPING CONFIGURATION **
-      // payment_intent_data: {
-      //   tip: {
-      //     amount_eligible: amountInCents,
-      //     suggested_amounts: [ Math.round(amountInCents * 0.10), Math.round(amountInCents * 0.15), Math.round(amountInCents * 0.20) ],
-      //     custom_amount: { enabled: true, minimum_amount: 100 },
-      //   },
-      //   metadata: { tip_intended_for: 'Driver', quote_amount_cents: amountInCents }
-      // },
+      // Tipping configuration removed previously
     });
     console.log("Stripe Session Created:", session.id);
     res.json({ url: session.url }); // Send session URL back
   } catch (stripeError) {
     console.error('Stripe API Error:', stripeError);
-    // Send specific Stripe error message back to frontend if possible
     res.status(500).json({ error: `Failed to create payment session: ${stripeError.message}` });
   }
 });
