@@ -14,8 +14,9 @@ const app = express();
 // ** NEW: Manual CORS Headers Middleware **
 // Apply this BEFORE any other middleware or routes
 app.use((req, res, next) => {
-  // Set allowed origin. Use '*' for testing, replace with your specific frontend URL for production.
-  const allowedOrigin = process.env.YOUR_WEBSITE_URL || '*';
+  // ** FORCED WILDCARD FOR TESTING **
+  const allowedOrigin = '*'; // Force allow all origins temporarily
+  // const allowedOrigin = process.env.YOUR_WEBSITE_URL || '*'; // Original line
   console.log(`Manual CORS: Setting Allow-Origin to: ${allowedOrigin}`);
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
 
@@ -23,24 +24,17 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
 
   // Set allowed headers
-  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type, Authorization'); // Add Authorization if needed later
-
-  // Set credentials header (optional, needed if frontend sends cookies/auth headers)
-  // res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type, Authorization');
 
   // Handle the preflight OPTIONS request explicitly
   if (req.method === 'OPTIONS') {
     console.log('Manual CORS: Handling OPTIONS preflight request');
-    // End the response successfully for OPTIONS requests
-    return res.sendStatus(204); // 204 No Content is standard for preflight success
+    return res.sendStatus(204); // Send 204 No Content
   }
 
   // Pass to next middleware
   next();
 });
-
-// ** REMOVED app.use(cors(corsOptions)); **
-// ** REMOVED app.options('*', cors(corsOptions)); **
 
 // Parse JSON bodies sent by the frontend (AFTER CORS headers are set)
 app.use(express.json());
@@ -61,8 +55,6 @@ ensureLeadsFileExists();
 // --- API Endpoint for Creating Stripe Checkout Session AND Logging Lead ---
 app.post('/create-checkout-session', async (req, res) => {
   console.log(`POST /create-checkout-session received at ${new Date().toISOString()}`);
-  // console.log("Request Body:", req.body); // Log body if needed
-
   const { calculatedQuote, contactDetails, stopsData, packagesData, serviceDetails, totalMiles } = req.body;
 
   // Basic Validation
@@ -107,13 +99,14 @@ app.post('/create-checkout-session', async (req, res) => {
   const orderSummary = `Delivery: ${stopsData.length} stops, ${packagesData.length} pkg types. Miles: ${totalMiles?.toFixed(1) || 'N/A'}`;
   const amountInCents = Math.round(parseFloat(calculatedQuote) * 100);
   if (amountInCents < 50) { return res.status(400).json({ error: 'Quote amount below minimum charge.' }); }
+  // Use the env var for redirect URLs, but CORS is now handled by '*' above
   const YOUR_DOMAIN = process.env.YOUR_WEBSITE_URL;
   if (!YOUR_DOMAIN || YOUR_DOMAIN === 'http://temp.com') {
-      console.error("CRITICAL: YOUR_WEBSITE_URL environment variable is not set correctly in Render!");
-      return res.status(500).json({ error: 'Server configuration error (Website URL missing or incorrect).' });
+      console.error("CRITICAL: YOUR_WEBSITE_URL environment variable is not set correctly in Render for redirects!");
+      // Still allow Stripe attempt but log critical error
   }
-  const successUrl = `${YOUR_DOMAIN}/payment-success.html?session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${YOUR_DOMAIN}/payment-cancelled.html`;
+  const successUrl = `${YOUR_DOMAIN || 'https://fallback-url.com'}/payment-success.html?session_id={CHECKOUT_SESSION_ID}`; // Add fallback
+  const cancelUrl = `${YOUR_DOMAIN || 'https://fallback-url.com'}/payment-cancelled.html`; // Add fallback
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -134,7 +127,7 @@ app.post('/create-checkout-session', async (req, res) => {
 
 // Basic Root Route
 app.get('/', (req, res) => {
-    res.send('Delivery Quote Backend Server (Combined Stripe & Logging - Manual CORS) is Running!');
+    res.send('Delivery Quote Backend Server (Combined Stripe & Logging - Manual CORS *) is Running!');
 });
 
 // Start the server
