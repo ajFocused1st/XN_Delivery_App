@@ -858,12 +858,11 @@ This is file is being replaced with new html:
     }
 
 
-    // ========== STRIPE PAYMENT LINK (*** Reads global miles, NO recalculation ***) ==========
+    // ========== STRIPE PAYMENT LINK (*** UPDATED to send correct structure ***) ==========
     async function handleBookNow() {
         console.log("Initiating Book Now process...");
 
-
-        // --- Gather Base Data ---
+        // --- Gather Base Data (Stops, Packages, Service Details) ---
         const stopGroups = document.querySelectorAll('.address-group');
         const stopsDataForBackend = Array.from(stopGroups).map(group => ({
             address: group.querySelector('.stop-addr')?.value.trim() || '',
@@ -874,10 +873,10 @@ This is file is being replaced with new html:
         if (stopsDataForBackend.length < 2) { alert("Error: Cannot proceed to payment without at least two valid stops defined."); return; }
         console.log("Collected Stops Data:", stopsDataForBackend);
 
-
         const packageGroups = document.querySelectorAll('.package-group');
         const packagesData = Array.from(packageGroups).map(group => ({
             qty: parseInt(group.querySelector('.pkg-qty')?.value || '1'),
+            desc: group.querySelector('.pkg-desc')?.value || 'N/A', // Added description
             weight: parseFloat(group.querySelector('.pkg-weight')?.value || '0'),
             length: parseFloat(group.querySelector('.pkg-length')?.value || '0'),
             width: parseFloat(group.querySelector('.pkg-width')?.value || '0'),
@@ -886,7 +885,6 @@ This is file is being replaced with new html:
         }));
         if (packagesData.length === 0) { alert("Error: Cannot proceed to payment without package details."); return; }
         console.log("Collected Packages Data:", packagesData);
-
 
         const serviceDetails = {
             vehicleType: document.getElementById('vehicleType')?.value || '',
@@ -901,53 +899,61 @@ This is file is being replaced with new html:
         if (!serviceDetails.vehicleType || !serviceDetails.pickupDate || !serviceDetails.pickupTime || !serviceDetails.urgency) { alert("Error: Missing required service details (Vehicle, Date, Time, Urgency)."); return; }
         console.log("Collected Service Details:", serviceDetails);
 
-
-        const customerEmail = document.getElementById('contactEmail')?.value || '';
-        if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
-             alert("Error: Please provide a valid contact email in the Contact Information section.");
-             document.getElementById('contactEmail').scrollIntoView({ behavior: 'smooth', block: 'center' });
-             document.getElementById('contactEmail').focus();
+        // --- Gather Contact Details (Into an object) ---
+        const contactDetails = {
+            name: document.getElementById('contactName')?.value || '',
+            email: document.getElementById('contactEmail')?.value || '',
+            phone: document.getElementById('contactPhone')?.value || '', // Optional
+            company: document.getElementById('contactCompany')?.value || '' // Optional
+        };
+        // Validate required contact fields
+        if (!contactDetails.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactDetails.email) || !contactDetails.name) {
+             alert("Error: Please provide a valid Contact Name and Email in the Contact Information section.");
+             document.getElementById('contactName').scrollIntoView({ behavior: 'smooth', block: 'center' });
              return;
          }
-        console.log("Using Customer Email:", customerEmail);
+        console.log("Collected Contact Details:", contactDetails);
 
-
-        // --- Get Total Miles from Global Variable (NO Recalculation Here) ---
+        // --- Get Total Miles from Global Variable ---
         const totalMiles = calculatedTotalMiles; // Read from global var set by calculateQuote
-        console.log("Using Stored Total Miles:", totalMiles); // Log the value being used
-
-
-        // Check if distance was calculated by 'calculateQuote'
-        // Allow 0 miles, but check if it's a valid number (was calculation run?)
+        console.log("Using Stored Total Miles:", totalMiles);
+        // Check if distance was calculated and is valid
         if (typeof totalMiles !== 'number' || totalMiles < 0) {
              alert("Error: Distance not calculated or invalid. Please click 'Calculate Quote' first.");
              return;
         }
 
+        // --- Get Calculated Quote from Button Dataset ---
+        const bookBtn = document.getElementById('bookNowBtn');
+        const calculatedQuote = bookBtn.dataset.quoteAmount; // Get quote from button dataset
+        if (!calculatedQuote || isNaN(parseFloat(calculatedQuote))) {
+            alert("Error: Could not retrieve the calculated quote amount. Please Calculate Quote again.");
+            return;
+        }
+        console.log("Using Calculated Quote:", calculatedQuote);
 
         // --- Prepare Fetch Request ---
-        const bookBtn = document.getElementById('bookNowBtn');
         bookBtn.textContent = 'Processing...';
         bookBtn.disabled = true;
-
 
         try {
             const backendUrl = 'https://xn-delivery-backend.onrender.com/create-checkout-session';
             console.log(`Attempting to fetch from: ${backendUrl}`);
 
-
             const response = await fetch(backendUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    // *** Structure matching backend expectation ***
+                    calculatedQuote: parseFloat(calculatedQuote), // Send as number
+                    contactDetails: contactDetails,             // Send contact object
                     stopsData: stopsDataForBackend,
                     packagesData: packagesData,
                     serviceDetails: serviceDetails,
-                    totalMiles: totalMiles, // Send the miles read from global var
-                    customerEmail: customerEmail
+                    totalMiles: totalMiles
+                    // customerEmail is now inside contactDetails
                 }),
             });
-
 
             if (!response.ok) {
                  let errorMsg = `Payment gateway error: ${response.status} ${response.statusText}`;
@@ -956,21 +962,19 @@ This is file is being replaced with new html:
                  throw new Error(errorMsg);
             }
 
-
             const session = await response.json();
             if (session.url) {
                 console.log("Redirecting to Stripe:", session.url);
-                window.location.href = session.url;
+                window.location.href = session.url; // Redirect user to Stripe
             } else {
                  throw new Error("Invalid response from server - no session URL received.")
             }
 
-
         } catch (error) {
             console.error('Stripe session creation failed:', error);
-            alert(`Error setting up payment: ${error.message}.`);
-            bookBtn.textContent = 'Proceed to Payment';
-            bookBtn.disabled = false;
+            alert(`Error setting up payment: ${error.message}. Please try again or contact support.`);
+            bookBtn.textContent = 'Proceed to Payment'; // Reset button text
+            bookBtn.disabled = false; // Re-enable button
         }
     }
 
