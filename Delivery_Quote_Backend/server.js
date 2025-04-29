@@ -3,7 +3,7 @@
 require('dotenv').config();
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const cors = require('cors'); // Import CORS middleware
+// const cors = require('cors'); // We will set headers manually
 const fs = require('fs');
 const path = require('path');
 
@@ -11,40 +11,38 @@ const app = express();
 
 // --- Middleware ---
 
-// server.js - Enhanced CORS Logging
+// ** NEW: Manual CORS Headers Middleware **
+// Apply this BEFORE any other middleware or routes
+app.use((req, res, next) => {
+  // Set allowed origin. Use '*' for testing, replace with your specific frontend URL for production.
+  const allowedOrigin = process.env.YOUR_WEBSITE_URL || '*';
+  console.log(`Manual CORS: Setting Allow-Origin to: ${allowedOrigin}`);
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
 
-console.log(`Server starting...`);
-// Log the env var value the server sees on startup
-console.log(`Attempting to read YOUR_WEBSITE_URL from env: ${process.env.YOUR_WEBSITE_URL}`);
+  // Set allowed methods
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Log the origin of the incoming request (this is crucial!)
-    console.log(`CORS Check: Request Origin Header: ${origin}`);
-    const allowedOrigin = process.env.YOUR_WEBSITE_URL;
-    console.log(`CORS Check: Allowed Origin from env: ${allowedOrigin}`);
+  // Set allowed headers
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type, Authorization'); // Add Authorization if needed later
 
-    // Check if the incoming origin matches the allowed one from env vars
-    // Allow requests with no origin (like mobile apps, curl) or from the specific allowed origin
-    if (!origin || origin === allowedOrigin) {
-      console.log(`CORS Check: Origin Allowed.`);
-      callback(null, true); // Allow the request
-    } else {
-      console.error(`CORS Check: Origin Denied.`);
-      callback(new Error('Not allowed by CORS')); // Deny the request
-    }
-  },
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
-  allowedHeaders: "Content-Type, Authorization, X-Requested-With",
-  credentials: true,
-  optionsSuccessStatus: 204 // Important for preflight requests
-};
+  // Set credentials header (optional, needed if frontend sends cookies/auth headers)
+  // res.setHeader('Access-Control-Allow-Credentials', true);
 
-// Apply CORS middleware globally BEFORE any routes
-app.use(cors(corsOptions));
-console.log("CORS middleware applied with enhanced logging.");
+  // Handle the preflight OPTIONS request explicitly
+  if (req.method === 'OPTIONS') {
+    console.log('Manual CORS: Handling OPTIONS preflight request');
+    // End the response successfully for OPTIONS requests
+    return res.sendStatus(204); // 204 No Content is standard for preflight success
+  }
 
-// Parse JSON bodies sent by the frontend (keep this after CORS)
+  // Pass to next middleware
+  next();
+});
+
+// ** REMOVED app.use(cors(corsOptions)); **
+// ** REMOVED app.options('*', cors(corsOptions)); **
+
+// Parse JSON bodies sent by the frontend (AFTER CORS headers are set)
 app.use(express.json());
 
 // --- File Logging Configuration ---
@@ -63,7 +61,7 @@ ensureLeadsFileExists();
 // --- API Endpoint for Creating Stripe Checkout Session AND Logging Lead ---
 app.post('/create-checkout-session', async (req, res) => {
   console.log(`POST /create-checkout-session received at ${new Date().toISOString()}`);
-  // console.log("Request Body:", req.body); // Log body if needed for debugging
+  // console.log("Request Body:", req.body); // Log body if needed
 
   const { calculatedQuote, contactDetails, stopsData, packagesData, serviceDetails, totalMiles } = req.body;
 
@@ -110,7 +108,6 @@ app.post('/create-checkout-session', async (req, res) => {
   const amountInCents = Math.round(parseFloat(calculatedQuote) * 100);
   if (amountInCents < 50) { return res.status(400).json({ error: 'Quote amount below minimum charge.' }); }
   const YOUR_DOMAIN = process.env.YOUR_WEBSITE_URL;
-  // ** Important Check for YOUR_WEBSITE_URL **
   if (!YOUR_DOMAIN || YOUR_DOMAIN === 'http://temp.com') {
       console.error("CRITICAL: YOUR_WEBSITE_URL environment variable is not set correctly in Render!");
       return res.status(500).json({ error: 'Server configuration error (Website URL missing or incorrect).' });
@@ -137,9 +134,9 @@ app.post('/create-checkout-session', async (req, res) => {
 
 // Basic Root Route
 app.get('/', (req, res) => {
-    res.send('Delivery Quote Backend Server (Combined Stripe & Logging - Explicit CORS) is Running!');
+    res.send('Delivery Quote Backend Server (Combined Stripe & Logging - Manual CORS) is Running!');
 });
 
 // Start the server
-const PORT = process.env.PORT || 10000; // Render provides PORT env var, default removed
+const PORT = process.env.PORT || 10000; // Render provides PORT env var
 app.listen(PORT, () => console.log(`Backend server listening on port ${PORT}`));
