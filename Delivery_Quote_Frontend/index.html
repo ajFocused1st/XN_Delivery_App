@@ -5,131 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Delivery Quote Form</title>
 
-
   <script
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBLGjGsB5x2IrYToh5IksSm4R8eSNx3ueo&libraries=places&v=weekly"
-    async
-    defer
-  ></script>
-
+    src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=places&v=weekly"
+    async defer
+    ></script>
 
   <style>
-    /* --- Styles (Keep existing styles from Part 1/2) --- */
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-      margin: 20px;
-      background-color: #FFFFFF;
-      color: #333;
-      line-height: 1.5;
-    }
-    h2, h3, h4 {
-      margin-top: 1.5em;
-      margin-bottom: 0.75em;
-      color: #21409A;
-    }
+    /* --- Styles (Keep existing styles) --- */
+    body { font-family: system-ui, sans-serif; margin: 20px; background-color: #FFF; color: #333; line-height: 1.5; }
+    h2, h3, h4 { margin-top: 1.5em; margin-bottom: 0.75em; color: #21409A; }
     h2 { font-size: 1.8em; text-align: center; margin-bottom: 1em; }
-    h3 { font-size: 1.4em; }
-    h4 { font-size: 1.1em; color: #333; }
-    fieldset {
-        margin-bottom: 25px;
-        padding: 20px;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        background-color: #fff;
-    }
-    legend {
-        font-weight: bold;
-        font-size: 1.2em;
-        color: #21409A;
-        padding: 0 10px;
-    }
-    .form-step {
-      background-color: #fff;
-      padding: 25px;
-      border-radius: 8px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-      display: none;
-      margin-bottom: 25px;
-      border: 1px solid #eee;
-    }
+    h3 { font-size: 1.4em; } h4 { font-size: 1.1em; color: #333; }
+    fieldset { margin-bottom: 25px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #fff; }
+    legend { font-weight: bold; font-size: 1.2em; color: #21409A; padding: 0 10px; }
+    .form-step { background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); display: none; margin-bottom: 25px; border: 1px solid #eee; }
     .form-step.active { display: block; }
-    label {
-      display: block;
-      margin-top: 12px;
-      margin-bottom: 4px;
-      font-weight: bold;
-      color: #333;
-    }
-    .inline-label {
-      display: inline-block;
-      margin-left: 5px;
-      font-weight: normal;
-      vertical-align: middle;
-      color: #333;
-    }
-     label.optional::after {
-        content: " (Optional)";
-        font-weight: normal;
-        font-size: 0.9em;
-        color: #6c757d;
-     }
-    input, select, textarea, button {
-      margin-top: 5px;
-      padding: 10px;
-      border-radius: 4px;
-      font-size: 1em;
-      font-family: inherit;
-    }
-    input[type="text"], input[type="email"], input[type="tel"], input[type="number"], select, textarea {
-      width: 100%;
-      max-width: 500px;
-      border: 1px solid #ccc;
-      box-sizing: border-box;
-      margin-bottom: 10px;
-    }
-    input[type="checkbox"] {
-        width: auto;
-        margin-right: 5px;
-        vertical-align: middle;
-    }
+    label { display: block; margin-top: 12px; margin-bottom: 4px; font-weight: bold; color: #333; }
+    .inline-label { display: inline-block; margin-left: 5px; font-weight: normal; vertical-align: middle; color: #333; }
+    label.optional::after { content: " (Optional)"; font-weight: normal; font-size: 0.9em; color: #6c757d; }
+    input, select, textarea, button { margin-top: 5px; padding: 10px; border-radius: 4px; font-size: 1em; font-family: inherit; }
+    input[type="text"], input[type="email"], input[type="tel"], input[type="number"], select, textarea { width: 100%; max-width: 500px; border: 1px solid #ccc; box-sizing: border-box; margin-bottom: 10px; }
+    input[type="checkbox"] { width: auto; margin-right: 5px; vertical-align: middle; }
     input[type="number"].pkg-qty { width: 70px; max-width: none; }
     input[type="number"].floor-count { width: 100px; max-width: none; }
-    button {
-      border: none;
-      cursor: pointer;
-      padding: 10px 18px;
-      transition: background-color 0.2s ease, transform 0.1s ease;
-    }
-     button:active { transform: scale(0.98); }
-     button:disabled { background-color: #ccc; cursor: not-allowed; }
+    button { border: none; cursor: pointer; padding: 10px 18px; transition: background-color 0.2s ease, transform 0.1s ease; }
+    button:active { transform: scale(0.98); } button:disabled { background-color: #ccc; cursor: not-allowed; }
     button.primary { background-color: #f15829; color: #FFFFFF; margin-top: 20px; }
     button.primary:hover:not(:disabled) { background-color: #d84f25; }
     button.secondary { background-color: #21409A; color: #FFFFFF; margin: 10px 10px 0 0; }
     button.secondary:hover:not(:disabled) { background-color: #1a337a; }
-    button#bookNowBtn { background-color: #28a745; }
+    button#downloadSummaryBtn { background-color: #17a2b8; color: #FFFFFF; margin-left: 10px; }
+    button#downloadSummaryBtn:hover:not(:disabled) { background-color: #138496; }
+    button#bookNowBtn { background-color: #28a745; margin-left: 10px; }
     button#bookNowBtn:hover:not(:disabled) { background-color: #218838; }
-    .address-group, .package-group {
-      margin-bottom: 20px;
-      padding: 15px;
-      padding-top: 45px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      position: relative;
-      background-color: #fdfdfd;
-    }
-    .remove-button {
-      background-color: #dc3545;
-      color: #fff;
-      padding: 5px 10px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      font-size: 0.8em;
-       transition: background-color 0.2s ease;
-    }
+    .address-group, .package-group { margin-bottom: 20px; padding: 15px; padding-top: 45px; border: 1px solid #ddd; border-radius: 4px; position: relative; background-color: #fdfdfd; }
+    .remove-button { background-color: #dc3545; color: #fff; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; position: absolute; top: 10px; right: 10px; font-size: 0.8em; transition: background-color 0.2s ease; }
     .remove-button:hover { background-color: #c82333; }
     .floor-input-div { margin-left: 25px; margin-top: 5px; margin-bottom: 10px; }
     .inline-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 5px; }
@@ -137,23 +47,19 @@
     .inline-group select { width: auto !important; flex-grow: 0; max-width: none; }
     .inline-group span { font-weight: bold; color: #6c757d; margin: 0 2px; }
     .summary-section { background-color: #f8f9fa; border: 1px solid #eee; padding: 20px; margin: 20px 0; border-radius: 4px; }
-     .summary-section h4 { margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-     .summary-section p { margin: 5px 0 10px 0; line-height: 1.4; }
+    .summary-section h4 { margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+    .summary-section p { margin: 5px 0 10px 0; line-height: 1.4; }
     #quoteResult { margin-top: 15px; padding: 15px; background-color: #e2f0ff; border: 1px solid #b8d4fe; border-radius: 4px; font-weight: bold; color: #21409A; text-align: center; font-size: 1.1em; }
     input.error-border, select.error-border, textarea.error-border,
-    input[style*="border-color: red"], select[style*="border-color: red"], textarea[style*="border-color: red"] {
-         border-color: red !important;
-    }
+    input[style*="border-color: red"], select[style*="border-color: red"], textarea[style*="border-color: red"] { border-color: red !important; }
     div.error-border { outline: 1px dotted red; outline-offset: 2px; border-radius: 4px; }
     small { font-size: 0.85em; color: #6c757d; }
-    /* --- End Existing Styles --- */
+    /* --- End Styles --- */
   </style>
 </head>
 <body>
 
-
     <h2>Delivery Quote Form</h2>
-
 
     <fieldset style="margin-bottom: 25px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #fff;">
         <legend>Contact Information</legend>
@@ -166,7 +72,6 @@
         <label for="contactCompany" class="optional">Company Name:</label>
         <input type="text" id="contactCompany" name="contactCompany" />
     </fieldset>
-
 
     <div class="form-step active" id="step-1">
       <h3>Step 1: Stops</h3>
@@ -219,7 +124,6 @@
       </div>
     </div>
 
-
     <div class="form-step" id="step-2">
       <h3>Step 2: Package Details</h3>
       <p>Enter quantity, description, weight (per item), and dimensions (per item) for each type of package.</p>
@@ -255,7 +159,6 @@
         <button type="button" class="primary" onclick="goToNextStep(2)">Next</button>
       </div>
     </div>
-
 
     <div class="form-step" id="step-3">
       <h3>Step 3: Service Details</h3>
@@ -295,7 +198,6 @@
       </div>
     </div>
 
-
     <div class="form-step" id="step-4">
       <h3>Step 4: Review & Quote</h3>
       <p>Review your details below. Click "Calculate Quote" to see the estimated price.</p>
@@ -304,87 +206,21 @@
       <h3 id="quoteResult"></h3>
       <button type="button" class="secondary" onclick="goToPrevStep(4)">Previous</button>
       <button type="button" class="primary" onclick="calculateQuote()">Calculate Quote</button>
+      <button type="button" class="secondary" id="downloadSummaryBtn" style="display:none;" onclick="downloadSummary()">Download Summary</button>
       <button type="button" class="primary" id="bookNowBtn" style="display:none;" onclick="handleBookNow()">Proceed to Payment</button>
     </div>
 
-
     <script>
-        // --- Global Variables (Unchanged) ---
+        // --- Global Variables ---
         let currentStep = 1;
         const totalSteps = 4;
         let stopCounter = 2;
         let packageCounter = 1;
         let distanceService;
         let geocoder;
-        let calculatedTotalMiles = 0; // Store calculated miles globally for handleBookNow
+        let calculatedTotalMiles = 0;
 
-
-  // Helper function to get distance from Google Distance Matrix API
-        // Returns a Promise that resolves with distance in miles or rejects with an error message.
-        function getDistanceInMiles(origin, destination) {
-            // Return a new Promise - necessary for using await when calling this function
-            return new Promise((resolve, reject) => {
-                // Check if the distanceService object (from Google Maps API) is ready
-                if (!distanceService) {
-                    // If not ready, reject the promise with an error message
-                    return reject('Distance service not ready. Check API key/loading.');
-                }
-                // Check if both origin and destination addresses are provided
-                if (!origin || !destination) {
-                    // If either is missing, reject the promise
-                    return reject('Missing origin or destination address for distance calculation.');
-                }
-
-
-                // Call the Google Maps Distance Matrix service
-                distanceService.getDistanceMatrix(
-                    {
-                        origins: [origin],               // Starting address
-                        destinations: [destination],     // Ending address
-                        travelMode: google.maps.TravelMode.DRIVING, // Specify driving mode
-                        unitSystem: google.maps.UnitSystem.IMPERIAL, // Request distance in miles (Imperial units)
-                    },
-                    // Callback function executed when Google Maps API responds
-                    (response, status) => {
-                        // Find the specific result element within the complex response structure
-                        const element = response?.rows?.[0]?.elements?.[0];
-
-
-                        // Check if the overall API call status and the specific element status are OK
-                        if (status === 'OK' && element?.status === 'OK') {
-                            // Extract the distance value in meters
-                            const distanceMeters = element.distance.value;
-                            // Check if the distance is a valid number
-                            if (typeof distanceMeters === 'number') {
-                                // Convert meters to miles and resolve the promise with the result
-                                resolve(distanceMeters / 1609.34);
-                            } else {
-                                // If distance data is invalid, reject the promise
-                                reject('Invalid distance data received from Google');
-                            }
-                        } else {
-                            // If there was an error from the API...
-                            const elementStatus = element?.status; // Get specific element status if available
-                            console.error('DistanceMatrix Error:', status, elementStatus, response); // Log detailed error info
-                            // Provide a user-friendly error message based on the status code
-                            if (status === 'REQUEST_DENIED') {
-                                reject(`Cannot get distance: API Key/Billing/Enablement issue.`);
-                            } else if (elementStatus === 'NOT_FOUND') {
-                                reject(`Cannot get distance: Address not found (${status}, ${elementStatus})`);
-                            } else if (elementStatus === 'ZERO_RESULTS') {
-                                reject(`Cannot get distance: No driving route found between addresses.`);
-                            } else {
-                                // Generic error for other cases
-                                reject(`Cannot get distance: Google API Error (${status || elementStatus || 'Unknown'})`);
-                            }
-                        }
-                    }
-                );
-            });
-        }
-
-
-        // --- Initialization (Unchanged) ---
+        // --- Initialization ---
         function initializeMapsServices() {
             if (typeof google !== 'undefined' && google.maps && google.maps.places && google.maps.DistanceMatrixService) {
                 try {
@@ -396,39 +232,33 @@
                     return true;
                 } catch (error) {
                     console.error("Error initializing Google Maps Services:", error);
-                    alert("Failed to initialize Google Maps components. Please check the API key and ensure all required APIs (Places, Distance Matrix) are enabled and billing is active.");
+                    alert("Failed to initialize Google Maps components. Check API key, enabled APIs (Places, Distance Matrix), and billing status.");
                     return false;
                 }
             } else {
-                console.error("Google Maps script failed to load or core services not available.");
+                console.error("Google Maps script failed to load, core services not available, OR API key is invalid/missing.");
                 const quoteResultEl = document.getElementById('quoteResult');
-                if (quoteResultEl) quoteResultEl.textContent = 'Error: Mapping services could not be loaded. Check API key/config.';
+                if (quoteResultEl) quoteResultEl.textContent = 'Error: Mapping services could not be loaded. Please check API key configuration.';
                 document.querySelectorAll('.primary, .secondary').forEach(btn => btn.disabled = true);
                 return false;
             }
         }
         window.addEventListener('load', () => {
-           if (!distanceService) {
-               if (typeof google === 'object' && typeof google.maps === 'object') {
-                   console.log("Initializing Maps Services via window.load fallback.");
+           if (typeof google === 'object' && typeof google.maps === 'object') {
+               if (!distanceService) {
+                   console.log("Initializing Maps Services via window.load.");
                    initializeMapsServices();
-               } else {
-                    console.error("Google Maps script did not load correctly by window.load.");
-                     const quoteResultEl = document.getElementById('quoteResult');
-                     if(quoteResultEl) quoteResultEl.textContent = 'Critical Error: Google Maps script did not load. Cannot proceed.';
-                     document.querySelectorAll('.primary, .secondary').forEach(btn => btn.disabled = true);
                }
+           } else {
+                console.error("Google Maps script did not load correctly by window.load. Check API key.");
+                 const quoteResultEl = document.getElementById('quoteResult');
+                 if(quoteResultEl) quoteResultEl.textContent = 'Critical Error: Google Maps script did not load. Check API key.';
+                 document.querySelectorAll('.primary, .secondary').forEach(btn => btn.disabled = true);
            }
          });
 
 
-        // ========== STEP NAVIGATION & VALIDATION (Unchanged from Part 2) ==========
-        function showStep(stepNumber) { /* ... */ }
-        function validateStep(stepNumber) { /* ... */ }
-        function goToNextStep(stepNumber) { /* ... */ }
-        function goToPrevStep(stepNumber) { /* ... */ }
-        // --- Keep the updated functions from Part 2 for showStep, validateStep, goToNextStep, goToPrevStep ---
-        // (Code omitted for brevity, but assume the functions from Part 2 are here)
+        // ========== STEP NAVIGATION & VALIDATION ==========
         function showStep(stepNumber) {
           document.querySelectorAll('.form-step').forEach(step => step.classList.remove('active'));
           const currentStepDiv = document.getElementById(`step-${stepNumber}`);
@@ -446,14 +276,16 @@
                  input.style.borderColor = '#ccc';
                  let value = input.value;
                  if ( (input.type === 'checkbox' && !input.checked && input.required) ||
-                      (!value || !value.trim()) && input.type !== 'checkbox') {
+                      (!value || !value.trim()) && input.type !== 'checkbox' && input.required) {
                      isValid = false;
                      input.style.borderColor = 'red';
                      if(input.type === 'checkbox') input.closest('div').classList.add('error-border');
-                 } else if (input.type === 'number' && input.min !== '' && parseFloat(value) < parseFloat(input.min)) {
+                 }
+                 else if (input.type === 'number' && input.min !== '' && parseFloat(value) < parseFloat(input.min)) {
+                     isValid = false; input.style.borderColor = 'red';
+                 }
+                 else if (input.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
                       isValid = false; input.style.borderColor = 'red';
-                 } else if (input.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-                       isValid = false; input.style.borderColor = 'red';
                  }
              });
              if (stepNumber === 1) {
@@ -518,18 +350,8 @@
         }
 
 
-
-
-        // ========== ADDRESS/STOP MANAGEMENT (Unchanged from Part 2) ==========
-        function addAddress() { /* ... */ }
-        function removeGroup(btn) { /* ... */ }
-        function renumberStops() { /* ... */ }
-        function toggleFloorInput(checkbox) { /* ... */ }
-        function initAutocompleteForExisting() { /* ... */ }
-        function initAutocompleteForFields(inputs) { /* ... */ }
-        // --- Keep the updated functions from Part 2 for address/stop management ---
-        // (Code omitted for brevity, but assume the functions from Part 2 are here)
-        function addAddress() {
+        // ========== ADDRESS/STOP MANAGEMENT ==========
+         function addAddress() {
           const addressContainer = document.getElementById('addressContainer');
           const newStopIndex = addressContainer.children.length + 1;
           stopCounter = newStopIndex;
@@ -566,7 +388,7 @@
           const group = btn.closest('.address-group, .package-group');
           const container = group.parentNode;
           if (container.id === 'packageContainer' && container.children.length <= 1) { alert("You must have at least one package."); return; }
-          if (container.id === 'addressContainer' && container.children.length <= 2) { alert("You need at least two stops (a pickup and a dropoff)."); return; }
+           if (container.id === 'addressContainer' && container.children.length <= 2) { alert("You need at least two stops (a pickup and a dropoff)."); return; }
           group.remove();
           if (container.id === 'addressContainer') renumberStops();
           if (container.id === 'packageContainer') renumberPackages();
@@ -632,13 +454,7 @@
         }
 
 
-
-
-        // ========== PACKAGE MANAGEMENT (Unchanged from Part 2) ==========
-        function addPackage() { /* ... */ }
-        function renumberPackages() { /* ... */ }
-        // --- Keep the updated functions from Part 2 for package management ---
-        // (Code omitted for brevity, but assume the functions from Part 2 are here)
+        // ========== PACKAGE MANAGEMENT ==========
         function addPackage() {
             packageCounter++;
             const pkgContainer = document.getElementById('packageContainer');
@@ -675,314 +491,309 @@
          }
 
 
-        // ========== BUILD SUMMARY (Unchanged from Part 2) ==========
-        function buildSummary() { /* ... */ }
-        // --- Keep the updated function from Part 2 for buildSummary ---
-        // (Code omitted for brevity, but assume the function from Part 2 is here)
+        // ========== BUILD SUMMARY (For HTML Display) ==========
         function buildSummary() {
           const summaryDiv = document.getElementById('summaryContainer');
           summaryDiv.innerHTML = '';
-          const contactName = document.getElementById('contactName')?.value || 'N/A'; const contactEmail = document.getElementById('contactEmail')?.value || 'N/A';
-          const contactPhone = document.getElementById('contactPhone')?.value || ''; const contactCompany = document.getElementById('contactCompany')?.value || '';
-          let contactSummary = `<h4>Contact Information</h4><p>Name: ${contactName}</p><p>Email: ${contactEmail}</p>`;
-          if (contactPhone) contactSummary += `<p>Phone: ${contactPhone}</p>`; if (contactCompany) contactSummary += `<p>Company: ${contactCompany}</p>`;
-          const stops = document.querySelectorAll('.address-group'); let addressSummary = '<h4>Stops</h4>';
+          const contactName = document.getElementById('contactName')?.value || 'N/A';
+          const contactEmail = document.getElementById('contactEmail')?.value || 'N/A';
+          const contactPhone = document.getElementById('contactPhone')?.value || '';
+          const contactCompany = document.getElementById('contactCompany')?.value || '';
+           let contactSummary = `<h4>Contact Information</h4><p>Name: ${contactName}</p><p>Email: ${contactEmail}</p>`;
+            if (contactPhone) contactSummary += `<p>Phone: ${contactPhone}</p>`;
+            if (contactCompany) contactSummary += `<p>Company: ${contactCompany}</p>`;
+          const stops = document.querySelectorAll('.address-group');
+          let addressSummary = '<h4>Stops</h4>';
           if (stops.length < 2) { addressSummary += '<p>Please enter at least 2 stops.</p>'; }
-          else {
-                stops.forEach((stopGroup, i) => {
-                    const addressInput = stopGroup.querySelector('.stop-addr'); const loadUnloadSelect = stopGroup.querySelector('.load-unload-select');
-                    const stairsCheck = stopGroup.querySelector('.stairs-check'); const floorInput = stopGroup.querySelector('.floor-count');
-                    let addressText = addressInput ? addressInput.value : 'N/A'; addressSummary += `<p><strong>Stop ${i + 1}:</strong> ${addressText}`;
-                    let loadUnloadValue = loadUnloadSelect ? loadUnloadSelect.value : 'N/A'; let loadUnloadText = 'N/A';
-                    if (loadUnloadSelect && loadUnloadSelect.selectedOptions.length > 0 && loadUnloadSelect.value !== "") loadUnloadText = loadUnloadSelect.selectedOptions[0].text;
+          else { stops.forEach((stopGroup, i) => {
+                    const addressInput = stopGroup.querySelector('.stop-addr');
+                    const loadUnloadSelect = stopGroup.querySelector('.load-unload-select');
+                    const stairsCheck = stopGroup.querySelector('.stairs-check');
+                    const floorInput = stopGroup.querySelector('.floor-count');
+                    let addressText = addressInput ? addressInput.value : 'N/A';
+                    addressSummary += `<p><strong>Stop ${i + 1}:</strong> ${addressText}`;
+                    let loadUnloadText = 'N/A';
+                    if (loadUnloadSelect && loadUnloadSelect.selectedOptions.length > 0 && loadUnloadSelect.value !== "") { loadUnloadText = loadUnloadSelect.selectedOptions[0].text; }
                     addressSummary += ` (Load/Unload: ${loadUnloadText})`;
                     if (stairsCheck && stairsCheck.checked) { let floorValue = (floorInput && floorInput.value) ? floorInput.value : 'Not specified'; addressSummary += ` (Stairs: Yes, Floor: ${floorValue})`; }
-                    else { addressSummary += ` (Stairs: No)`; } addressSummary += `</p>`;
-                });
+                    else { addressSummary += ` (Stairs: No)`; }
+                    addressSummary += `</p>`; });
           }
-          const packageGroups = document.querySelectorAll('.package-group'); let pkgSummary = '<h4>Packages</h4>';
-          if (packageGroups.length === 0) { pkgSummary += '<p>No packages added.</p>'; }
-          else {
-                 packageGroups.forEach((pkgGroup, j) => {
+           const packageGroups = document.querySelectorAll('.package-group');
+           let pkgSummary = '<h4>Packages</h4>';
+            if (packageGroups.length === 0) { pkgSummary += '<p>No packages added.</p>'; }
+            else { packageGroups.forEach((pkgGroup, j) => {
                      const pkgQty = pkgGroup.querySelector('.pkg-qty')?.value || '1'; const pkgDesc = pkgGroup.querySelector('.pkg-desc')?.value || 'N/A';
                      const pkgWeight = pkgGroup.querySelector('.pkg-weight')?.value || '0'; const pkgLength = pkgGroup.querySelector('.pkg-length')?.value || '0';
                      const pkgWidth = pkgGroup.querySelector('.pkg-width')?.value || '0'; const pkgHeight = pkgGroup.querySelector('.pkg-height')?.value || '0';
                      const pkgUnit = pkgGroup.querySelector('.pkg-unit')?.value || 'inches';
-                     pkgSummary += `<p><strong>Package ${j+1} (${pkgQty}x):</strong> ${pkgDesc}<br/><span style="margin-left: 10px;">Wt(ea): ${pkgWeight} lbs, Dim(ea): ${pkgLength}x${pkgWidth}x${pkgHeight} ${pkgUnit}</span></p>`;
-                 });
+                     pkgSummary += `<p><strong>Package ${j+1} (${pkgQty}x):</strong> ${pkgDesc}<br/><span style="margin-left: 10px;">Wt(ea): ${pkgWeight} lbs, Dim(ea): ${pkgLength}x${pkgWidth}x${pkgHeight} ${pkgUnit}</span></p>`; });
             }
-          const vehicleType = document.getElementById('vehicleType').value; const pickupDate = document.getElementById('pickupDate').value; const pickupTime = document.getElementById('pickupTime').value;
-          const urgencySelect = document.getElementById('urgency'); const urgencyText = urgencySelect.value ? urgencySelect.selectedOptions[0].text : 'N/A';
-          const insideDelivery = document.getElementById('insideDelivery').checked; const hazardous = document.getElementById('hazardous').checked;
-          const bioHazardous = document.getElementById('bioHazardous').checked; const extraLaborer = document.getElementById('extraLaborer').checked;
+          const vehicleType = document.getElementById('vehicleType').value;
+          const pickupDate = document.getElementById('pickupDate').value;
+          const pickupTime = document.getElementById('pickupTime').value;
+          const urgencySelect = document.getElementById('urgency');
+          const urgencyText = urgencySelect.value ? urgencySelect.selectedOptions[0].text : 'N/A';
+          const insideDelivery = document.getElementById('insideDelivery').checked;
+          const hazardous = document.getElementById('hazardous').checked;
+          const bioHazardous = document.getElementById('bioHazardous').checked;
+          const extraLaborer = document.getElementById('extraLaborer').checked;
           let extrasSummary = `<h4>Details & Services</h4><p>Vehicle: ${vehicleType || 'N/A'}</p><p>Pickup Date/Time: ${pickupDate || 'N/A'} ${pickupTime || 'N/A'}</p><p>Urgency: ${urgencyText}</p>`;
           extrasSummary += `<p>Inside Delivery: ${insideDelivery ? 'Yes (+5%)' : 'No'}</p>`; extrasSummary += `<p>Hazardous: ${hazardous ? 'Yes (+15%)' : 'No'}</p>`;
           extrasSummary += `<p>Bio-Hazardous: ${bioHazardous ? 'Yes (+20%)' : 'No'}</p>`; extrasSummary += `<p>Extra Laborer: ${extraLaborer ? 'Yes (+$35)' : 'No'}</p>`;
           extrasSummary += `<p id="summary-miles">Total Distance: Pending Calculation...</p>`;
           summaryDiv.innerHTML = contactSummary + addressSummary + pkgSummary + extrasSummary;
-          document.getElementById('quoteResult').textContent = ''; document.getElementById('bookNowBtn').style.display = 'none';
+          document.getElementById('quoteResult').textContent = '';
+          document.getElementById('bookNowBtn').style.display = 'none';
+          document.getElementById('downloadSummaryBtn').style.display = 'none'; // Also hide download button
         }
 
 
-
-
-    // ========== QUOTE CALCULATION (Frontend Version - *** UPDATED Mileage Rule ***) ==========
-    async function calculateQuote() {
-        if (!validateStep(1) || !validateStep(2) || !validateStep(3)) {
-             alert("Please complete all required fields in previous steps before calculating the quote.");
-              if(!validateStep(1)) showStep(1);
-              else if(!validateStep(2)) showStep(2);
-              else if(!validateStep(3)) showStep(3);
-             return;
-         }
-        buildSummary(); // Refresh summary view
-
-
-        const quoteResultEl = document.getElementById('quoteResult');
-        const milesSummaryEl = document.getElementById('summary-miles');
-        const bookBtn = document.getElementById('bookNowBtn');
-
-
-        quoteResultEl.textContent = 'Calculating... Please Wait';
-        milesSummaryEl.textContent = 'Total Distance: Calculating...';
-        bookBtn.style.display = 'none'; bookBtn.disabled = true;
-        calculatedTotalMiles = 0; // Reset global miles before calculation
-
-
-        // --- 1) Get Stops Data ---
-        const stopGroups = document.querySelectorAll('.address-group');
-        const stopsData = Array.from(stopGroups).map(group => ({
-            address: group.querySelector('.stop-addr').value.trim(),
-            loadUnload: group.querySelector('.load-unload-select').value,
-            stairs: group.querySelector('.stairs-check').checked,
-            floor: group.querySelector('.floor-count').value
-        })).filter(stop => stop.address.length > 0);
-
-
-        if (stopsData.length < 2) {
-            alert("Need at least 2 valid stops to calculate a route.");
-            quoteResultEl.textContent = 'Error: Not enough stops entered.';
-            milesSummaryEl.textContent = 'Total Distance: N/A';
-            // Keep button disabled or enable? Your choice. Let's leave disabled.
-            return;
-        }
-
-
-        // --- 2) Calculate Total Distance (API Call 1) ---
-        let totalMiles = 0; // Local variable for this function's scope
-        try {
-            const stopAddresses = stopsData.map(s => s.address);
-            for (let i = 0; i < stopAddresses.length - 1; i++) {
-                const distanceMiles = await getDistanceInMiles(stopAddresses[i], stopAddresses[i+1]);
-                if (typeof distanceMiles !== 'number' || isNaN(distanceMiles)) throw new Error(`Invalid distance received for leg ${i+1}`);
-                totalMiles += distanceMiles;
-            }
-            // *** Store result in global variable for handleBookNow to use ***
-            calculatedTotalMiles = totalMiles; // UPDATE GLOBAL VARIABLE
-            milesSummaryEl.textContent = `Total Distance: ${totalMiles.toFixed(1)} miles`;
-            console.log(`Total Distance Calculated: ${totalMiles.toFixed(1)} miles`);
-        } catch (error) {
-            console.error(`Distance calculation failed:`, error);
-            milesSummaryEl.textContent = `Total Distance: Error`;
-            quoteResultEl.textContent = typeof error === 'string' ? error : 'Error calculating distance.';
-            // Keep button disabled
-            return;
-        }
-
-
-        // --- 3) Calculate Costs (Frontend Version - *** Using NEW Mileage Rule ***) ---
-        try {
-            // *** NEW Mileage Cost: $1.25 per mile flat rate ***
-            let mileageCost = totalMiles * 1.25;
-            console.log("Mileage Cost:", mileageCost.toFixed(2));
-
-
-            // --- Calculate other components (Weight, Load/Unload, Stairs, etc.) ---
-            let totalWeight = 0;
-            document.querySelectorAll('.package-group').forEach(pkgGroup => { const qty = parseInt(pkgGroup.querySelector('.pkg-qty')?.value || '1'); const weightPerItem = parseFloat(pkgGroup.querySelector('.pkg-weight')?.value || '0'); if (!isNaN(qty) && !isNaN(weightPerItem) && qty > 0 && weightPerItem >= 0) totalWeight += qty * weightPerItem; });
-            console.log("Total Weight Calculated:", totalWeight.toFixed(2), "lbs");
-
-
-            const weightCostRate = 0.03; let weightCost = totalWeight * weightCostRate;
-            console.log("Weight Cost:", weightCost.toFixed(2));
-
-
-            let totalLoadUnloadFee = 0;
-            stopsData.forEach((stop, index) => { let feeForThisStop = 0; let driverOnlyFee = 0; if (totalWeight <= 0) driverOnlyFee = 0; else if (totalWeight <= 50) driverOnlyFee = 5; else if (totalWeight <= 250) driverOnlyFee = 10; else if (totalWeight <= 500) driverOnlyFee = 15; else if (totalWeight <= 1000) driverOnlyFee = 20; else if (totalWeight <= 1500) driverOnlyFee = 30; else if (totalWeight <= 2000) driverOnlyFee = 40; else if (totalWeight <= 2500) driverOnlyFee = 50; else if (totalWeight <= 3000) driverOnlyFee = 60; else driverOnlyFee = 60; if (stop.loadUnload === 'driver') feeForThisStop = driverOnlyFee; else if (stop.loadUnload === 'driver_assist') feeForThisStop = driverOnlyFee / 2; totalLoadUnloadFee += feeForThisStop; console.log(`Stop ${index+1} Load/Unload Fee (${stop.loadUnload}):`, feeForThisStop.toFixed(2)); });
-            console.log("Total Load/Unload Fee:", totalLoadUnloadFee.toFixed(2));
-
-
-            let totalStairCost = 0;
-            stopsData.forEach(stop => { if (stop.stairs && stop.floor) { const floorCount = parseInt(stop.floor); if (!isNaN(floorCount) && floorCount > 1) totalStairCost += (floorCount - 1) * 5.00; } });
-            console.log("Total Stair Cost:", totalStairCost.toFixed(2));
-
-
-            let servicesMultiplier = 1.0; let flatServiceFees = 0;
-            if (document.getElementById('insideDelivery').checked) servicesMultiplier += 0.05;
-            if (document.getElementById('hazardous').checked) servicesMultiplier += 0.15;
-            if (document.getElementById('bioHazardous').checked) servicesMultiplier += 0.20;
-            if (document.getElementById('extraLaborer').checked) flatServiceFees += 35.00;
-            console.log("Services Multiplier:", servicesMultiplier.toFixed(2), "Flat Service Fees:", flatServiceFees.toFixed(2));
-
-
-            const urgency = document.getElementById('urgency').value; let urgencyPremium = 0;
-            if (urgency === 'expedited') urgencyPremium = 50.00;
-            console.log("Urgency Premium:", urgencyPremium.toFixed(2));
-
-
-            const numberOfStops = stopsData.length; let additionalStopFee = 0;
-            if (numberOfStops > 2) additionalStopFee = (numberOfStops - 2) * 3.50;
-            console.log("Additional Stop Fee:", additionalStopFee.toFixed(2));
-
-
-            // --- 4) Calculate Final Total Cost ---
-            const baseCost = mileageCost + weightCost; // Base cost now uses new mileage calc
-            const costAfterMultiplier = baseCost * servicesMultiplier;
-            const totalCost = costAfterMultiplier + totalLoadUnloadFee + totalStairCost + flatServiceFees + urgencyPremium + additionalStopFee;
-            const finalQuote = Math.max(0, totalCost);
-            console.log("Final Calculated Total Cost:", finalQuote.toFixed(2));
-
-
-            // --- 5) Display Quote ---
-            quoteResultEl.textContent = `Estimated Quote: $${finalQuote.toFixed(2)}`;
-            bookBtn.style.display = 'inline-block'; bookBtn.disabled = false;
-            bookBtn.dataset.quoteAmount = finalQuote.toFixed(2);
-
-
-        } catch (error) {
-            console.error("Error during cost calculation steps:", error);
-            quoteResultEl.textContent = 'Error calculating final cost.';
-            bookBtn.disabled = false; // Or keep disabled on error?
-        }
-    }
-
-
-    // ========== STRIPE PAYMENT LINK (*** UPDATED to send correct structure ***) ==========
-    async function handleBookNow() {
-        console.log("Initiating Book Now process...");
-
-        // --- Gather Base Data (Stops, Packages, Service Details) ---
-        const stopGroups = document.querySelectorAll('.address-group');
-        const stopsDataForBackend = Array.from(stopGroups).map(group => ({
-            address: group.querySelector('.stop-addr')?.value.trim() || '',
-            loadUnload: group.querySelector('.load-unload-select')?.value || '',
-            stairs: group.querySelector('.stairs-check')?.checked || false,
-            floor: group.querySelector('.floor-count')?.value || ''
-        })).filter(stop => stop.address.length > 0);
-        if (stopsDataForBackend.length < 2) { alert("Error: Cannot proceed to payment without at least two valid stops defined."); return; }
-        console.log("Collected Stops Data:", stopsDataForBackend);
-
-        const packageGroups = document.querySelectorAll('.package-group');
-        const packagesData = Array.from(packageGroups).map(group => ({
-            qty: parseInt(group.querySelector('.pkg-qty')?.value || '1'),
-            desc: group.querySelector('.pkg-desc')?.value || 'N/A', // Added description
-            weight: parseFloat(group.querySelector('.pkg-weight')?.value || '0'),
-            length: parseFloat(group.querySelector('.pkg-length')?.value || '0'),
-            width: parseFloat(group.querySelector('.pkg-width')?.value || '0'),
-            height: parseFloat(group.querySelector('.pkg-height')?.value || '0'),
-            unit: group.querySelector('.pkg-unit')?.value || 'inches'
-        }));
-        if (packagesData.length === 0) { alert("Error: Cannot proceed to payment without package details."); return; }
-        console.log("Collected Packages Data:", packagesData);
-
-        const serviceDetails = {
-            vehicleType: document.getElementById('vehicleType')?.value || '',
-            pickupDate: document.getElementById('pickupDate')?.value || '',
-            pickupTime: document.getElementById('pickupTime')?.value || '',
-            urgency: document.getElementById('urgency')?.value || '',
-            insideDelivery: document.getElementById('insideDelivery')?.checked || false,
-            hazardous: document.getElementById('hazardous')?.checked || false,
-            bioHazardous: document.getElementById('bioHazardous')?.checked || false,
-            extraLaborer: document.getElementById('extraLaborer')?.checked || false
-        };
-        if (!serviceDetails.vehicleType || !serviceDetails.pickupDate || !serviceDetails.pickupTime || !serviceDetails.urgency) { alert("Error: Missing required service details (Vehicle, Date, Time, Urgency)."); return; }
-        console.log("Collected Service Details:", serviceDetails);
-
-        // --- Gather Contact Details (Into an object) ---
-        const contactDetails = {
-            name: document.getElementById('contactName')?.value || '',
-            email: document.getElementById('contactEmail')?.value || '',
-            phone: document.getElementById('contactPhone')?.value || '', // Optional
-            company: document.getElementById('contactCompany')?.value || '' // Optional
-        };
-        // Validate required contact fields
-        if (!contactDetails.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactDetails.email) || !contactDetails.name) {
-             alert("Error: Please provide a valid Contact Name and Email in the Contact Information section.");
-             document.getElementById('contactName').scrollIntoView({ behavior: 'smooth', block: 'center' });
-             return;
-         }
-        console.log("Collected Contact Details:", contactDetails);
-
-        // --- Get Total Miles from Global Variable ---
-        const totalMiles = calculatedTotalMiles; // Read from global var set by calculateQuote
-        console.log("Using Stored Total Miles:", totalMiles);
-        // Check if distance was calculated and is valid
-        if (typeof totalMiles !== 'number' || totalMiles < 0) {
-             alert("Error: Distance not calculated or invalid. Please click 'Calculate Quote' first.");
-             return;
-        }
-
-        // --- Get Calculated Quote from Button Dataset ---
-        const bookBtn = document.getElementById('bookNowBtn');
-        const calculatedQuote = bookBtn.dataset.quoteAmount; // Get quote from button dataset
-        if (!calculatedQuote || isNaN(parseFloat(calculatedQuote))) {
-            alert("Error: Could not retrieve the calculated quote amount. Please Calculate Quote again.");
-            return;
-        }
-        console.log("Using Calculated Quote:", calculatedQuote);
-
-        // --- Prepare Fetch Request ---
-        bookBtn.textContent = 'Processing...';
-        bookBtn.disabled = true;
-
-        try {
-            const backendUrl = 'https://delivery-quote-backend.onrender.com/create-checkout-session';
-            console.log(`Attempting to fetch from: ${backendUrl}`);
-
-            const response = await fetch(backendUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    // *** Structure matching backend expectation ***
-                    calculatedQuote: parseFloat(calculatedQuote), // Send as number
-                    contactDetails: contactDetails,             // Send contact object
-                    stopsData: stopsDataForBackend,
-                    packagesData: packagesData,
-                    serviceDetails: serviceDetails,
-                    totalMiles: totalMiles
-                    // customerEmail is now inside contactDetails
-                }),
+        // ========== HELPER: GET DISTANCE ==========
+        function getDistanceInMiles(origin, destination) {
+            return new Promise((resolve, reject) => {
+                if (!distanceService) return reject('Distance service not ready.');
+                if (!origin || !destination) return reject('Missing origin or destination.');
+                distanceService.getDistanceMatrix(
+                    { origins: [origin], destinations: [destination], travelMode: google.maps.TravelMode.DRIVING, unitSystem: google.maps.UnitSystem.IMPERIAL, },
+                    (response, status) => {
+                        const element = response?.rows?.[0]?.elements?.[0];
+                        if (status === 'OK' && element?.status === 'OK') {
+                            const distanceMeters = element.distance.value;
+                            if (typeof distanceMeters === 'number') resolve(distanceMeters / 1609.34);
+                            else reject('Invalid distance data from Google');
+                        } else {
+                            const elementStatus = element?.status;
+                            console.error('DistanceMatrix Error:', status, elementStatus, response);
+                            if (status === 'REQUEST_DENIED' || element?.status === 'REQUEST_DENIED') reject(`Cannot get distance: API Key/Billing/Enablement issue.`);
+                            else if (elementStatus === 'NOT_FOUND') reject(`Cannot get distance: Address not found.`);
+                            else if (elementStatus === 'ZERO_RESULTS') reject(`Cannot get distance: No driving route found.`);
+                            else reject(`Cannot get distance: Google API Error (${status || elementStatus || 'Unknown'})`);
+                        }
+                    }
+                );
             });
-
-            if (!response.ok) {
-                 let errorMsg = `Payment gateway error: ${response.status} ${response.statusText}`;
-                 try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
-                 catch(e) { console.warn("Could not parse error response body:", e); }
-                 throw new Error(errorMsg);
-            }
-
-            const session = await response.json();
-            if (session.url) {
-                console.log("Redirecting to Stripe:", session.url);
-                window.location.href = session.url; // Redirect user to Stripe
-            } else {
-                 throw new Error("Invalid response from server - no session URL received.")
-            }
-
-        } catch (error) {
-            console.error('Stripe session creation failed:', error);
-            alert(`Error setting up payment: ${error.message}. Please try again or contact support.`);
-            bookBtn.textContent = 'Proceed to Payment'; // Reset button text
-            bookBtn.disabled = false; // Re-enable button
         }
-    }
 
 
-      </script>
+        // ========== QUOTE CALCULATION & DATA LOGGING TO BACKEND ==========
+        async function calculateQuote() {
+             if (!validateStep(1) || !validateStep(2) || !validateStep(3)) { return; }
+             buildSummary();
+            const quoteResultEl = document.getElementById('quoteResult');
+            const milesSummaryEl = document.getElementById('summary-miles');
+            const bookBtn = document.getElementById('bookNowBtn');
+            const downloadBtn = document.getElementById('downloadSummaryBtn');
+            quoteResultEl.textContent = 'Calculating... Please Wait';
+            milesSummaryEl.textContent = 'Total Distance: Calculating...';
+            bookBtn.style.display = 'none'; downloadBtn.style.display = 'none';
+            bookBtn.disabled = true; downloadBtn.disabled = true;
+            calculatedTotalMiles = 0;
+            const stopGroups = document.querySelectorAll('.address-group');
+            const stopsData = Array.from(stopGroups).map(group => ({ address: group.querySelector('.stop-addr').value.trim(), loadUnload: group.querySelector('.load-unload-select').value, stairs: group.querySelector('.stairs-check').checked, floor: group.querySelector('.floor-count').value })).filter(stop => stop.address.length > 0);
+            if (stopsData.length < 2) { alert("Need at least 2 valid stops..."); quoteResultEl.textContent = 'Error...'; milesSummaryEl.textContent = '...'; return; }
+            let totalMiles = 0;
+            try {
+                const stopAddresses = stopsData.map(s => s.address);
+                for (let i = 0; i < stopAddresses.length - 1; i++) {
+                    const distanceMiles = await getDistanceInMiles(stopAddresses[i], stopAddresses[i+1]);
+                    if (typeof distanceMiles !== 'number' || isNaN(distanceMiles)) { throw new Error(`Invalid distance for leg ${i+1}`); }
+                    totalMiles += distanceMiles;
+                }
+                calculatedTotalMiles = totalMiles;
+                milesSummaryEl.textContent = `Total Distance: ${totalMiles.toFixed(1)} miles`;
+                console.log(`Total Distance: ${totalMiles.toFixed(1)} miles`);
+            } catch (error) { console.error(`Distance calc failed:`, error); milesSummaryEl.textContent = `Total Distance: Error`; quoteResultEl.textContent = (error instanceof Error) ? error.message : 'Error calculating distance.'; return; }
+            let finalQuote = 0;
+            try {
+                // --- Cost Calculation Logic ---
+                let mileageCost = totalMiles * 1.25;
+                let totalWeight = 0;
+                document.querySelectorAll('.package-group').forEach(pkgGroup => { const qty = parseInt(pkgGroup.querySelector('.pkg-qty')?.value || '1'); const weightPerItem = parseFloat(pkgGroup.querySelector('.pkg-weight')?.value || '0'); if (!isNaN(qty) && !isNaN(weightPerItem) && qty > 0 && weightPerItem >= 0) totalWeight += qty * weightPerItem; });
+                const weightCostRate = 0.03; let weightCost = totalWeight * weightCostRate;
+                let totalLoadUnloadFee = 0;
+                stopsData.forEach((stop) => { let fee = 0; let driverFee = 0; if (totalWeight > 0) { if (totalWeight <= 50) driverFee = 5; else if (totalWeight <= 250) driverFee = 10; else if (totalWeight <= 500) driverFee = 15; else if (totalWeight <= 1000) driverFee = 20; else if (totalWeight <= 1500) driverFee = 30; else if (totalWeight <= 2000) driverFee = 40; else if (totalWeight <= 2500) driverFee = 50; else driverFee = 60; } if (stop.loadUnload === 'driver') fee = driverFee; else if (stop.loadUnload === 'driver_assist') fee = driverFee / 2; totalLoadUnloadFee += fee; });
+                let totalStairCost = 0;
+                stopsData.forEach(stop => { if (stop.stairs && stop.floor) { const floor = parseInt(stop.floor); if (!isNaN(floor) && floor > 1) totalStairCost += (floor - 1) * 5.00; } });
+                let servicesMultiplier = 1.0; let flatServiceFees = 0;
+                if (document.getElementById('insideDelivery').checked) servicesMultiplier += 0.05; if (document.getElementById('hazardous').checked) servicesMultiplier += 0.15; if (document.getElementById('bioHazardous').checked) servicesMultiplier += 0.20; if (document.getElementById('extraLaborer').checked) flatServiceFees += 35.00;
+                const urgency = document.getElementById('urgency').value; let urgencyPremium = 0; if (urgency === 'expedited') urgencyPremium = 50.00;
+                const numStops = stopsData.length; let additionalStopFee = 0; if (numStops > 2) additionalStopFee = (numStops - 2) * 3.50;
+                const baseCost = mileageCost + weightCost; const costAfterMultiplier = baseCost * servicesMultiplier;
+                const totalCost = costAfterMultiplier + totalLoadUnloadFee + totalStairCost + flatServiceFees + urgencyPremium + additionalStopFee;
+                finalQuote = Math.max(0, totalCost);
+                // --- End Cost Calculation ---
+
+                // --- Display Quote & Buttons ---
+                quoteResultEl.textContent = `Estimated Quote: $${finalQuote.toFixed(2)}`;
+                bookBtn.style.display = 'inline-block'; downloadBtn.style.display = 'inline-block';
+                bookBtn.disabled = false; downloadBtn.disabled = false;
+                bookBtn.dataset.quoteAmount = finalQuote.toFixed(2);
+
+            } catch (error) { console.error("Cost calc error:", error); quoteResultEl.textContent = 'Error calculating cost.'; return; }
+
+            // --- Send Data to Backend for Logging Calculated Quote ---
+            if (finalQuote >= 0 && quoteResultEl.textContent.startsWith("Estimated Quote")) {
+                try {
+                    // *** IMPORTANT: Replace with your DEPLOYED backend URL when live ***
+                    // Use http://localhost:4242 for local testing if your backend runs there
+                    const LOGGING_BACKEND_URL_CALCULATE_QUOTE = "https://delivery-quote-backend.onrender.com/log-calculated-quote"; // Ensure this is your correct backend URL
+
+                    // --- Gather data ---
+                    const contactDetails = { name: document.getElementById('contactName')?.value || '', email: document.getElementById('contactEmail')?.value || '', phone: document.getElementById('contactPhone')?.value || '', company: document.getElementById('contactCompany')?.value || '' };
+                    const packageGroups = document.querySelectorAll('.package-group');
+                    const packagesData = Array.from(packageGroups).map(group => ({ qty: parseInt(group.querySelector('.pkg-qty')?.value || '1'), desc: group.querySelector('.pkg-desc')?.value || '', weight: parseFloat(group.querySelector('.pkg-weight')?.value || '0'), length: parseFloat(group.querySelector('.pkg-length')?.value || '0'), width: parseFloat(group.querySelector('.pkg-width')?.value || '0'), height: parseFloat(group.querySelector('.pkg-height')?.value || '0'), unit: group.querySelector('.pkg-unit')?.value || 'inches' }));
+                    const serviceDetails = { vehicleType: document.getElementById('vehicleType')?.value || '', pickupDate: document.getElementById('pickupDate')?.value || '', pickupTime: document.getElementById('pickupTime')?.value || '', urgency: document.getElementById('urgency')?.value || '', insideDelivery: document.getElementById('insideDelivery')?.checked || false, hazardous: document.getElementById('hazardous')?.checked || false, bioHazardous: document.getElementById('bioHazardous')?.checked || false, extraLaborer: document.getElementById('extraLaborer')?.checked || false };
+                    const leadData = { contactDetails: contactDetails, stopsData: stopsData, packagesData: packagesData, serviceDetails: serviceDetails, totalMiles: calculatedTotalMiles, calculatedQuote: finalQuote };
+
+                    console.log("Sending calculated quote data to backend:", JSON.stringify(leadData, null, 2));
+
+                    // --- Fetch call to backend logging endpoint ---
+                    fetch(LOGGING_BACKEND_URL_CALCULATE_QUOTE, {
+                        method: 'POST',
+                        cache: 'no-cache',
+                        headers: { 'Content-Type': 'application/json', },
+                        body: JSON.stringify(leadData),
+                    })
+                    .then(response => {
+                        console.log('Backend calculated quote logging response status:', response.status);
+                        if (!response.ok) {
+                            return response.json().then(errData => {
+                                throw new Error(`Backend logging failed: ${response.status} ${response.statusText} - ${errData.message || 'No details'}`);
+                            }).catch(() => {
+                                throw new Error(`Backend logging failed: ${response.status} ${response.statusText}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(result => {
+                        console.log('Backend Calculated Quote Logging Response:', result);
+                        if (result && result.status === 'success') {
+                            console.log('Calculated quote data successfully logged by backend.');
+                        } else {
+                            console.error('Backend reported an error logging calculated quote:', result ? result.message : 'Unknown error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error sending calculated quote data to backend:', error);
+                        // Don't necessarily alert user for this background logging failure
+                    });
+                } catch (logError) { console.error("Error preparing/sending calculated quote data to backend:", logError); }
+            }
+        }
 
 
+        // ========== GENERATE SUMMARY TEXT ==========
+        function generateSummaryText() {
+            let summaryText = "Delivery Quote Summary\n========================\n\n";
+            summaryText += "Contact Information:\n";
+            summaryText += `  Name: ${document.getElementById('contactName')?.value || 'N/A'}\n`;
+            summaryText += `  Email: ${document.getElementById('contactEmail')?.value || 'N/A'}\n`;
+            const contactPhone = document.getElementById('contactPhone')?.value; if (contactPhone) summaryText += `  Phone: ${contactPhone}\n`;
+            const contactCompany = document.getElementById('contactCompany')?.value; if (contactCompany) summaryText += `  Company: ${contactCompany}\n`;
+            summaryText += "\nStops:\n";
+            const stops = document.querySelectorAll('.address-group');
+            if (stops.length < 2) { summaryText += "  (Not enough stops entered)\n"; }
+            else { stops.forEach((stopGroup, i) => { const addressInput = stopGroup.querySelector('.stop-addr'); const loadUnloadSelect = stopGroup.querySelector('.load-unload-select'); const stairsCheck = stopGroup.querySelector('.stairs-check'); const floorInput = stopGroup.querySelector('.floor-count'); let addressText = addressInput ? addressInput.value : 'N/A'; summaryText += `  Stop ${i + 1}: ${addressText}\n`; let loadUnloadText = 'N/A'; if (loadUnloadSelect && loadUnloadSelect.selectedOptions.length > 0 && loadUnloadSelect.value !== "") loadUnloadText = loadUnloadSelect.selectedOptions[0].text; summaryText += `    Load/Unload: ${loadUnloadText}\n`; if (stairsCheck && stairsCheck.checked) { let floorValue = (floorInput && floorInput.value) ? floorInput.value : 'Not specified'; summaryText += `    Stairs: Yes, Floor: ${floorValue}\n`; } else { summaryText += `    Stairs: No\n`; } }); }
+            summaryText += "\nPackages:\n";
+            const packageGroups = document.querySelectorAll('.package-group');
+            if (packageGroups.length === 0) { summaryText += "  (No packages added)\n"; }
+            else { packageGroups.forEach((pkgGroup, j) => { const pkgQty = pkgGroup.querySelector('.pkg-qty')?.value || '1'; const pkgDesc = pkgGroup.querySelector('.pkg-desc')?.value || 'N/A'; const pkgWeight = pkgGroup.querySelector('.pkg-weight')?.value || '0'; const pkgLength = pkgGroup.querySelector('.pkg-length')?.value || '0'; const pkgWidth = pkgGroup.querySelector('.pkg-width')?.value || '0'; const pkgHeight = pkgGroup.querySelector('.pkg-height')?.value || '0'; const pkgUnit = pkgGroup.querySelector('.pkg-unit')?.value || 'inches'; summaryText += `  Package ${j+1} (${pkgQty}x): ${pkgDesc}\n`; summaryText += `    Wt(ea): ${pkgWeight} lbs, Dim(ea): ${pkgLength}x${pkgWidth}x${pkgHeight} ${pkgUnit}\n`; }); }
+            summaryText += "\nDetails & Services:\n";
+            summaryText += `  Vehicle: ${document.getElementById('vehicleType').value || 'N/A'}\n`;
+            summaryText += `  Pickup Date/Time: ${document.getElementById('pickupDate').value || 'N/A'} ${document.getElementById('pickupTime').value || 'N/A'}\n`;
+            const urgencySelect = document.getElementById('urgency'); const urgencyText = urgencySelect.value ? urgencySelect.selectedOptions[0].text : 'N/A'; summaryText += `  Urgency: ${urgencyText}\n`;
+            summaryText += `  Inside Delivery: ${document.getElementById('insideDelivery').checked ? 'Yes' : 'No'}\n`; summaryText += `  Hazardous: ${document.getElementById('hazardous').checked ? 'Yes' : 'No'}\n`;
+            summaryText += `  Bio-Hazardous: ${document.getElementById('bioHazardous').checked ? 'Yes' : 'No'}\n`; summaryText += `  Extra Laborer: ${document.getElementById('extraLaborer').checked ? 'Yes' : 'No'}\n`;
+            summaryText += `  Total Distance: ${calculatedTotalMiles > 0 ? calculatedTotalMiles.toFixed(1) + ' miles' : 'Not Calculated'}\n`;
+            summaryText += "\nQuote:\n";
+            summaryText += `  ${document.getElementById('quoteResult').textContent || 'Not Calculated'}\n`;
+            return summaryText;
+        }
+
+
+        // ========== DOWNLOAD SUMMARY FUNCTION ==========
+        function downloadSummary() {
+             console.log("Download summary requested.");
+            try {
+                const summaryContent = generateSummaryText();
+                const blob = new Blob([summaryContent], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'delivery_summary.txt';
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                console.log("Summary download initiated.");
+            } catch (error) {
+                console.error("Error generating or downloading summary:", error);
+                alert("Could not download summary. Please check the console for errors.");
+            }
+        }
+
+
+        // ========== STRIPE PAYMENT LINK ==========
+        async function handleBookNow() {
+            console.log("Initiating Book Now process...");
+            const bookBtn = document.getElementById('bookNowBtn');
+            // --- Gather Data ---
+            const stopGroups = document.querySelectorAll('.address-group'); const stopsDataForBackend = Array.from(stopGroups).map(group => ({ address: group.querySelector('.stop-addr')?.value.trim() || '', loadUnload: group.querySelector('.load-unload-select')?.value || '', stairs: group.querySelector('.stairs-check')?.checked || false, floor: group.querySelector('.floor-count')?.value || '' })).filter(stop => stop.address.length > 0);
+            if (stopsDataForBackend.length < 2) { alert("Error: Need 2+ stops for payment."); return; }
+            const packageGroups = document.querySelectorAll('.package-group'); const packagesData = Array.from(packageGroups).map(group => ({ qty: parseInt(group.querySelector('.pkg-qty')?.value || '1'), desc: group.querySelector('.pkg-desc')?.value || '', weight: parseFloat(group.querySelector('.pkg-weight')?.value || '0'), length: parseFloat(group.querySelector('.pkg-length')?.value || '0'), width: parseFloat(group.querySelector('.pkg-width')?.value || '0'), height: parseFloat(group.querySelector('.pkg-height')?.value || '0'), unit: group.querySelector('.pkg-unit')?.value || 'inches' }));
+            if (packagesData.length === 0) { alert("Error: Need package details for payment."); return; }
+            const serviceDetails = { vehicleType: document.getElementById('vehicleType')?.value || '', pickupDate: document.getElementById('pickupDate')?.value || '', pickupTime: document.getElementById('pickupTime')?.value || '', urgency: document.getElementById('urgency')?.value || '', insideDelivery: document.getElementById('insideDelivery')?.checked || false, hazardous: document.getElementById('hazardous')?.checked || false, bioHazardous: document.getElementById('bioHazardous')?.checked || false, extraLaborer: document.getElementById('extraLaborer')?.checked || false };
+            if (!serviceDetails.vehicleType || !serviceDetails.pickupDate || !serviceDetails.pickupTime || !serviceDetails.urgency) { alert("Error: Missing service details."); return; }
+            const customerEmail = document.getElementById('contactEmail')?.value || ''; const customerName = document.getElementById('contactName')?.value || ''; const customerPhone = document.getElementById('contactPhone')?.value || ''; const customerCompany = document.getElementById('contactCompany')?.value || '';
+             if (!customerName) { alert("Error: Contact name required."); return; } if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) { alert("Error: Valid contact email required."); return; }
+            const totalMiles = calculatedTotalMiles; if (typeof totalMiles !== 'number' || totalMiles < 0) { alert("Error: Distance not calculated."); return; }
+            const quoteAmount = bookBtn.dataset.quoteAmount; if (!quoteAmount || isNaN(parseFloat(quoteAmount))) { alert("Error: Quote amount not available."); return; }
+
+            // --- Prepare Fetch Request to /create-checkout-session ---
+            bookBtn.textContent = 'Processing...'; bookBtn.disabled = true; document.getElementById('downloadSummaryBtn').disabled = true;
+            try {
+                // *** IMPORTANT: Replace with your DEPLOYED backend URL when live ***
+                const CHECKOUT_BACKEND_URL = 'https://delivery-quote-backend.onrender.com/create-checkout-session'; // CORRECTED URL
+                // const CHECKOUT_BACKEND_URL = 'http://localhost:4242/create-checkout-session'; // For local testing
+
+                console.log(`Attempting to fetch from: ${CHECKOUT_BACKEND_URL}`);
+                const response = await fetch(CHECKOUT_BACKEND_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    // Send all necessary data for logging AND Stripe session creation
+                    body: JSON.stringify({
+                        contactDetails: { name: customerName, email: customerEmail, phone: customerPhone, company: customerCompany },
+                        stopsData: stopsDataForBackend,
+                        packagesData: packagesData,
+                        serviceDetails: serviceDetails,
+                        totalMiles: totalMiles,
+                        calculatedQuote: parseFloat(quoteAmount) // Send the final quote
+                    }),
+                });
+                 // Handle potential errors from the backend (logging or Stripe)
+                 if (!response.ok) {
+                     let errorMsg = `Payment/Logging Error: ${response.status} ${response.statusText}`;
+                     try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; } // Try to get specific error from backend
+                     catch(e) { console.warn("Could not parse error response body:", e); }
+                     throw new Error(errorMsg);
+                 }
+                // If backend was successful (logged and got Stripe URL)
+                const session = await response.json();
+                if (session.url) {
+                    console.log("Redirecting to Stripe:", session.url);
+                    window.location.href = session.url; // Redirect user
+                } else {
+                    // Should not happen if response.ok is true, but handle defensively
+                    throw new Error("Invalid response from server - no session URL received.")
+                }
+            } catch (error) {
+                // Catch fetch errors or errors thrown from backend response handling
+                console.error('Checkout process failed:', error);
+                alert(`Error setting up payment: ${error.message}.`);
+                // Re-enable buttons on error
+                bookBtn.textContent = 'Proceed to Payment';
+                bookBtn.disabled = false;
+                document.getElementById('downloadSummaryBtn').disabled = false;
+            }
+        }
+
+    </script>
 </body>
 </html>
-
-
-
