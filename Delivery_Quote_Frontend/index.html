@@ -5,11 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Delivery Quote Form</title>
 
+  <!-- 
+    *******************************************************************
+    * IMPORTANT: Replace 'YOUR_API_KEY_HERE' below with your actual   *
+    * Google Maps API key. Ensure the following in your Google Cloud  *
+    * Platform (GCP) Console for the project linked to this key:      *
+    * 1. Maps JavaScript API is ENABLED.                              *
+    * 2. Places API is ENABLED.                                       *
+    * 3. Distance Matrix API is ENABLED.                              *
+    * 4. Billing is ENABLED for the project.                          *
+    * 5. If using HTTP Referrer restrictions, add your live domain    *
+    * (e.g., your-frontend-name.onrender.com/*) to the allowed list.*
+    *******************************************************************
+  -->
   <script
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBLGjGsB5x2IrYToh5IksSm4R8eSNx3ueo&libraries=places&v=weekly"
     async defer
     ></script>
-
 
   <style>
     /* --- Styles --- */
@@ -94,6 +106,9 @@
         margin-right: 5px;
         vertical-align: middle;
     }
+    input[type="file"] {
+        padding: 3px; /* Less padding for file inputs */
+    }
     input[type="number"].pkg-qty {
         width: 70px;
         max-width: none; /* Override max-width for specific small inputs */
@@ -158,7 +173,8 @@
      .summary-section h4 { margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
      .summary-section p { margin: 5px 0 10px 0; line-height: 1.4; }
     /* Quote Result Styling */
-    #quoteResult { margin-top: 15px; padding: 15px; background-color: #e2f0ff; border: 1px solid #b8d4fe; border-radius: 4px; font-weight: bold; color: #21409A; text-align: center; font-size: 1.1em; }
+    #quoteResult { margin-top: 15px; padding: 15px; background-color: #e2f0ff; border: 1px solid #b8d4fe; border-radius: 4px; font-weight: bold;
+      color: #21409A; text-align: center; font-size: 1.1em; }
     /* Style for required field errors applied via JS */
     input.error-border, select.error-border, textarea.error-border,
     input[style*="border-color: red"], select[style*="border-color: red"], textarea[style*="border-color: red"] {
@@ -240,7 +256,7 @@
 
     <div class="form-step" id="step-2">
       <h3>Step 2: Package Details</h3>
-      <p>Enter quantity, description, weight (per item), and dimensions (per item) for each type of package.</p>
+      <p>Enter quantity, description, weight (per item), and dimensions (per item) for each type of package. Max total weight 4000 lbs.</p>
       <div id="packageContainer">
         <div class="package-group">
           <button type="button" class="remove-button" onclick="removeGroup(this)" style="display:none;">Remove</button>
@@ -265,6 +281,8 @@
               <option value="feet">Feet</option>
             </select>
           </div>
+          <label for="pkgUpload1" class="optional">Upload Image/Doc (Optional):</label>
+          <input type="file" id="pkgUpload1" class="pkg-upload" accept="image/*,application/pdf,.doc,.docx,.txt">
         </div>
       </div>
       <button type="button" class="secondary" onclick="addPackage()">Add Another Package</button>
@@ -279,9 +297,10 @@
       <label for="vehicleType">Select Vehicle Type:</label>
       <select id="vehicleType" required>
         <option value="">--Select--</option>
+        <option value="cargo_van_high_roof">Cargo Van (High Roof)</option>
         <option value="cargo_van">Cargo Van</option>
-        <option value="box_truck">Box Truck</option>
         <option value="pickup_truck">Pickup Truck</option>
+        <option value="suv">SUV</option>
       </select>
       <label for="pickupDate">Pickup Date:</label>
       <input type="date" id="pickupDate" required />
@@ -289,22 +308,28 @@
       <input type="time" id="pickupTime" required />
       <label for="urgency">Urgency:</label>
       <select id="urgency" required>
-        <option value="">--Select--</option>
-        <option value="standard">Standard (End of Day)</option>
-        <option value="expedited">Expedited (4 Hours)</option> <option value="overnight">Overnight</option>
+        <option value="">--Select Urgency--</option>
+        <option value="standard_9pm">Standard (End of Day 9pm)</option>
+        <option value="asap_2hr">ASAP (2 Hours)</option>
+        <option value="expedited_4hr">Expedite (4 Hours)</option>
+        <option value="late_night">Late Night (10pm - 4:30am)</option>
       </select>
+
+      <label for="specialNotes" class="optional">Special Notes (PO #, Instructions, Equipment):</label>
+      <textarea id="specialNotes" rows="3" placeholder="Enter PO number, specific delivery instructions, or equipment needs here..."></textarea>
+
       <h4>Additional Services</h4>
       <div>
-        <input type="checkbox" id="insideDelivery" /> <label for="insideDelivery" class="inline-label">Inside Delivery (+5%)</label>
+        <input type="checkbox" id="insideDelivery" /> <label for="insideDelivery" class="inline-label">Inside Delivery</label>
       </div>
       <div>
-        <input type="checkbox" id="hazardous" /> <label for="hazardous" class="inline-label">Hazardous Materials (+15%)</label>
+        <input type="checkbox" id="hazardousBio" /> <label for="hazardousBio" class="inline-label">Hazardous/Bio-Hazardous Materials</label>
       </div>
       <div>
-        <input type="checkbox" id="bioHazardous" /> <label for="bioHazardous" class="inline-label">Bio-Hazardous (+20%)</label>
+        <input type="checkbox" id="fragileHandling" /> <label for="fragileHandling" class="inline-label">Fragile/Special Handling</label>
       </div>
       <div>
-        <input type="checkbox" id="extraLaborer" /> <label for="extraLaborer" class="inline-label">Extra Laborer (+$35)</label>
+        <input type="checkbox" id="extraLaborer" /> <label for="extraLaborer" class="inline-label">Extra Laborer</label>
       </div>
       <div>
         <button type="button" class="secondary" onclick="goToPrevStep(3)">Previous</button>
@@ -425,7 +450,7 @@
              } else if (stepNumber === 2) {
                  currentStepDiv.querySelectorAll('.package-group').forEach(group => {
                      let packageValid = true;
-                     group.querySelectorAll('input[type="number"][required]').forEach(numInput => {
+                     group.querySelectorAll('input[type="number"][required].pkg-weight, input[type="number"][required].pkg-length, input[type="number"][required].pkg-width, input[type="number"][required].pkg-height').forEach(numInput => {
                          if (numInput.value && parseFloat(numInput.value) < 0) {
                              packageValid = false; numInput.style.borderColor = 'red';
                          }
@@ -433,7 +458,7 @@
                      if (!packageValid) { isValid = false; alert('Package weights and dimensions cannot be negative.'); }
                  });
              }
-             if (!isValid && stepNumber > 1) {
+             if (!isValid && stepNumber > 1 && stepNumber !== 2) {
                  alert('Please fill out all required fields correctly (highlighted in red).');
              }
              return isValid;
@@ -574,8 +599,15 @@
             const pkgContainer = document.getElementById('packageContainer');
             const pkgGroup = document.createElement('div');
             pkgGroup.className = 'package-group';
-            const qtyId = `pkgQty${packageCounter}`; const descId = `pkgDesc${packageCounter}`; const weightId = `pkgWeight${packageCounter}`;
-            const lengthId = `pkgLength${packageCounter}`; const widthId = `pkgWidth${packageCounter}`; const heightId = `pkgHeight${packageCounter}`; const unitId = `pkgUnit${packageCounter}`;
+            const qtyId = `pkgQty${packageCounter}`;
+            const descId = `pkgDesc${packageCounter}`;
+            const weightId = `pkgWeight${packageCounter}`;
+            const lengthId = `pkgLength${packageCounter}`;
+            const widthId = `pkgWidth${packageCounter}`;
+            const heightId = `pkgHeight${packageCounter}`;
+            const unitId = `pkgUnit${packageCounter}`;
+            const uploadId = `pkgUpload${packageCounter}`; // New ID for file upload
+
             pkgGroup.innerHTML = `
             <button type="button" class="remove-button" onclick="removeGroup(this)">Remove</button>
             <div class="inline-group"> <label for="${qtyId}">Qty:</label> <input type="number" id="${qtyId}" class="pkg-qty" min="1" value="1" required style="width: 70px; margin-right: 15px;"> <label for="${descId}" style="flex-grow: 1;">Description:</label> </div>
@@ -583,7 +615,10 @@
             <label for="${weightId}">Weight (lbs per item):</label> <input type="number" id="${weightId}" class="pkg-weight" min="0" step="0.1" placeholder="Weight per item in lbs" required />
              <small style="display: block; margin-top: -3px; margin-bottom: 10px; color: #6c757d;">Weight cost: $0.03 per pound (total weight).</small>
             <label>Dimensions (L x W x H per item):</label>
-            <div class="inline-group"> <input type="number" id="${lengthId}" class="pkg-length dimension-input" min="0" step="0.1" placeholder="L" required title="Length" /> <span>x</span> <input type="number" id="${widthId}" class="pkg-width dimension-input" min="0" step="0.1" placeholder="W" required title="Width"/> <span>x</span> <input type="number" id="${heightId}" class="pkg-height dimension-input" min="0" step="0.1" placeholder="H" required title="Height"/> <select id="${unitId}" class="pkg-unit" required title="Dimension Unit"> <option value="inches" selected>Inches</option> <option value="feet">Feet</option> </select> </div>`;
+            <div class="inline-group"> <input type="number" id="${lengthId}" class="pkg-length dimension-input" min="0" step="0.1" placeholder="L" required title="Length" /> <span>x</span> <input type="number" id="${widthId}" class="pkg-width dimension-input" min="0" step="0.1" placeholder="W" required title="Width"/> <span>x</span> <input type="number" id="${heightId}" class="pkg-height dimension-input" min="0" step="0.1" placeholder="H" required title="Height"/> <select id="${unitId}" class="pkg-unit" required title="Dimension Unit"> <option value="inches" selected>Inches</option> <option value="feet">Feet</option> </select> </div>
+            <label for="${uploadId}" class="optional">Upload Image/Doc (Optional):</label>
+            <input type="file" id="${uploadId}" class="pkg-upload" accept="image/*,application/pdf,.doc,.docx,.txt">
+            `;
             pkgContainer.appendChild(pkgGroup);
             renumberPackages();
         }
@@ -594,11 +629,13 @@
                  const pkgNumber = index + 1;
                  const qtyId = `pkgQty${pkgNumber}`; const descId = `pkgDesc${pkgNumber}`; const weightId = `pkgWeight${pkgNumber}`;
                  const lengthId = `pkgLength${pkgNumber}`; const widthId = `pkgWidth${pkgNumber}`; const heightId = `pkgHeight${pkgNumber}`; const unitId = `pkgUnit${pkgNumber}`;
+                 const uploadId = `pkgUpload${pkgNumber}`; // Renumber file upload
                  group.querySelector('label[for^="pkgQty"]')?.setAttribute('for', qtyId); group.querySelector('.pkg-qty')?.setAttribute('id', qtyId);
                  group.querySelector('label[for^="pkgDesc"]')?.setAttribute('for', descId); group.querySelector('.pkg-desc')?.setAttribute('id', descId);
                  group.querySelector('label[for^="pkgWeight"]')?.setAttribute('for', weightId); group.querySelector('.pkg-weight')?.setAttribute('id', weightId);
                  group.querySelector('.pkg-length')?.setAttribute('id', lengthId); group.querySelector('.pkg-width')?.setAttribute('id', widthId);
                  group.querySelector('.pkg-height')?.setAttribute('id', heightId); group.querySelector('.pkg-unit')?.setAttribute('id', unitId);
+                 group.querySelector('label[for^="pkgUpload"]')?.setAttribute('for', uploadId); group.querySelector('.pkg-upload')?.setAttribute('id', uploadId); // Update file upload
                  const removeBtn = group.querySelector('.remove-button'); if(removeBtn) removeBtn.style.display = (pkgNumber === 1) ? 'none' : 'block';
              });
              packageCounter = allPkgGroups.length;
@@ -637,29 +674,47 @@
            let pkgSummary = '<h4>Packages</h4>';
             if (packageGroups.length === 0) { pkgSummary += '<p>No packages added.</p>'; }
             else { packageGroups.forEach((pkgGroup, j) => {
-                     const pkgQty = pkgGroup.querySelector('.pkg-qty')?.value || '1'; const pkgDesc = pkgGroup.querySelector('.pkg-desc')?.value || 'N/A';
-                     const pkgWeight = pkgGroup.querySelector('.pkg-weight')?.value || '0'; const pkgLength = pkgGroup.querySelector('.pkg-length')?.value || '0';
-                     const pkgWidth = pkgGroup.querySelector('.pkg-width')?.value || '0'; const pkgHeight = pkgGroup.querySelector('.pkg-height')?.value || '0';
+                     const pkgQty = pkgGroup.querySelector('.pkg-qty')?.value || '1';
+                     const pkgDesc = pkgGroup.querySelector('.pkg-desc')?.value || 'N/A';
+                     const pkgWeight = pkgGroup.querySelector('.pkg-weight')?.value || '0';
+                     const pkgLength = pkgGroup.querySelector('.pkg-length')?.value || '0';
+                     const pkgWidth = pkgGroup.querySelector('.pkg-width')?.value || '0';
+                     const pkgHeight = pkgGroup.querySelector('.pkg-height')?.value || '0';
                      const pkgUnit = pkgGroup.querySelector('.pkg-unit')?.value || 'inches';
-                     pkgSummary += `<p><strong>Package ${j+1} (${pkgQty}x):</strong> ${pkgDesc}<br/><span style="margin-left: 10px;">Wt(ea): ${pkgWeight} lbs, Dim(ea): ${pkgLength}x${pkgWidth}x${pkgHeight} ${pkgUnit}</span></p>`; });
+                     const pkgUploadInput = pkgGroup.querySelector('.pkg-upload');
+                     let pkgUploadName = 'None';
+                     if (pkgUploadInput && pkgUploadInput.files && pkgUploadInput.files.length > 0) {
+                         pkgUploadName = pkgUploadInput.files[0].name;
+                     }
+                     pkgSummary += `<p><strong>Package ${j+1} (${pkgQty}x):</strong> ${pkgDesc}<br/>`;
+                     pkgSummary += `<span style="margin-left: 10px;">Wt(ea): ${pkgWeight} lbs, Dim(ea): ${pkgLength}x${pkgWidth}x${pkgHeight} ${pkgUnit}, File: ${pkgUploadName}</span></p>`;
+                 });
             }
-          const vehicleType = document.getElementById('vehicleType').value;
+          const vehicleTypeSelect = document.getElementById('vehicleType');
+          const vehicleTypeText = vehicleTypeSelect.value ? vehicleTypeSelect.options[vehicleTypeSelect.selectedIndex].text : 'N/A';
           const pickupDate = document.getElementById('pickupDate').value;
           const pickupTime = document.getElementById('pickupTime').value;
           const urgencySelect = document.getElementById('urgency');
-          const urgencyText = urgencySelect.value ? urgencySelect.selectedOptions[0].text : 'N/A';
+          const urgencyText = urgencySelect.value ? urgencySelect.options[urgencySelect.selectedIndex].text : 'N/A'; // Display text without fee
+          const specialNotes = document.getElementById('specialNotes')?.value || 'None';
+
           const insideDelivery = document.getElementById('insideDelivery').checked;
-          const hazardous = document.getElementById('hazardous').checked;
-          const bioHazardous = document.getElementById('bioHazardous').checked;
+          const hazardousBio = document.getElementById('hazardousBio').checked;
+          const fragileHandling = document.getElementById('fragileHandling').checked;
           const extraLaborer = document.getElementById('extraLaborer').checked;
-          let extrasSummary = `<h4>Details & Services</h4><p>Vehicle: ${vehicleType || 'N/A'}</p><p>Pickup Date/Time: ${pickupDate || 'N/A'} ${pickupTime || 'N/A'}</p><p>Urgency: ${urgencyText}</p>`;
-          extrasSummary += `<p>Inside Delivery: ${insideDelivery ? 'Yes (+5%)' : 'No'}</p>`; extrasSummary += `<p>Hazardous: ${hazardous ? 'Yes (+15%)' : 'No'}</p>`;
-          extrasSummary += `<p>Bio-Hazardous: ${bioHazardous ? 'Yes (+20%)' : 'No'}</p>`; extrasSummary += `<p>Extra Laborer: ${extraLaborer ? 'Yes (+$35)' : 'No'}</p>`;
+
+          let extrasSummary = `<h4>Details & Services</h4><p>Vehicle: ${vehicleTypeText}</p><p>Pickup Date/Time: ${pickupDate || 'N/A'} ${pickupTime || 'N/A'}</p><p>Urgency: ${urgencyText}</p>`;
+          extrasSummary += `<p>Special Notes: ${specialNotes}</p>`;
+          extrasSummary += `<p>Inside Delivery: ${insideDelivery ? 'Yes' : 'No'}</p>`; // Removed fee display
+          extrasSummary += `<p>Hazardous/Bio-Hazardous: ${hazardousBio ? 'Yes' : 'No'}</p>`; // Updated label, removed fee display
+          extrasSummary += `<p>Fragile/Special Handling: ${fragileHandling ? 'Yes' : 'No'}</p>`; // New, removed fee display
+          extrasSummary += `<p>Extra Laborer: ${extraLaborer ? 'Yes' : 'No'}</p>`; // Removed fee display
           extrasSummary += `<p id="summary-miles">Total Distance: Pending Calculation...</p>`;
+
           summaryDiv.innerHTML = contactSummary + addressSummary + pkgSummary + extrasSummary;
           document.getElementById('quoteResult').textContent = '';
           document.getElementById('bookNowBtn').style.display = 'none';
-          document.getElementById('downloadSummaryBtn').style.display = 'none'; // Also hide download button
+          document.getElementById('downloadSummaryBtn').style.display = 'none';
         }
 
 
@@ -693,7 +748,7 @@
         // ========== QUOTE CALCULATION & DATA LOGGING TO BACKEND ==========
         async function calculateQuote() {
              if (!validateStep(1) || !validateStep(2) || !validateStep(3)) { return; }
-             buildSummary();
+             buildSummary(); // Call buildSummary to update the display before calculation
             const quoteResultEl = document.getElementById('quoteResult');
             const milesSummaryEl = document.getElementById('summary-miles');
             const bookBtn = document.getElementById('bookNowBtn');
@@ -703,9 +758,22 @@
             bookBtn.style.display = 'none'; downloadBtn.style.display = 'none';
             bookBtn.disabled = true; downloadBtn.disabled = true;
             calculatedTotalMiles = 0;
+
             const stopGroups = document.querySelectorAll('.address-group');
-            const stopsData = Array.from(stopGroups).map(group => ({ address: group.querySelector('.stop-addr').value.trim(), loadUnload: group.querySelector('.load-unload-select').value, stairs: group.querySelector('.stairs-check').checked, floor: group.querySelector('.floor-count').value })).filter(stop => stop.address.length > 0);
-            if (stopsData.length < 2) { alert("Need at least 2 valid stops..."); quoteResultEl.textContent = 'Error...'; milesSummaryEl.textContent = '...'; return; }
+            const stopsData = Array.from(stopGroups).map(group => ({
+                address: group.querySelector('.stop-addr').value.trim(),
+                loadUnload: group.querySelector('.load-unload-select').value,
+                stairs: group.querySelector('.stairs-check').checked,
+                floor: group.querySelector('.floor-count').value
+            })).filter(stop => stop.address.length > 0);
+
+            if (stopsData.length < 2) {
+                alert("Need at least 2 valid stops to calculate a route.");
+                quoteResultEl.textContent = 'Error: Not enough stops.';
+                milesSummaryEl.textContent = 'Total Distance: N/A';
+                return;
+            }
+
             let totalMiles = 0;
             try {
                 const stopAddresses = stopsData.map(s => s.address);
@@ -715,30 +783,78 @@
                     totalMiles += distanceMiles;
                 }
                 calculatedTotalMiles = totalMiles;
-                milesSummaryEl.textContent = `Total Distance: ${totalMiles.toFixed(1)} miles`;
+                milesSummaryEl.textContent = `Total Distance: ${totalMiles.toFixed(1)} miles`; // Update summary again
                 console.log(`Total Distance: ${totalMiles.toFixed(1)} miles`);
-            } catch (error) { console.error(`Distance calc failed:`, error); milesSummaryEl.textContent = `Total Distance: Error`; quoteResultEl.textContent = (error instanceof Error) ? error.message : 'Error calculating distance.'; return; }
+            } catch (error) {
+                console.error(`Distance calc failed:`, error);
+                milesSummaryEl.textContent = `Total Distance: Error`;
+                quoteResultEl.textContent = (error instanceof Error) ? error.message : 'Error calculating distance.';
+                return;
+            }
+
             let finalQuote = 0;
+            let totalWeight = 0;
+            document.querySelectorAll('.package-group').forEach(pkgGroup => {
+                const qty = parseInt(pkgGroup.querySelector('.pkg-qty')?.value || '1');
+                const weightPerItem = parseFloat(pkgGroup.querySelector('.pkg-weight')?.value || '0');
+                if (!isNaN(qty) && !isNaN(weightPerItem) && qty > 0 && weightPerItem >= 0) {
+                    totalWeight += qty * weightPerItem;
+                }
+            });
+            console.log("Total Weight for Quote:", totalWeight);
+
+            // Max weight check
+            if (totalWeight > 4000) {
+                alert("Total weight exceeds the maximum limit of 4000 lbs. Please adjust package details.");
+                quoteResultEl.textContent = 'Error: Weight limit exceeded.';
+                return;
+            }
+
             try {
-                // --- Cost Calculation Logic ---
-                let mileageCost = totalMiles * 1.25;
-                let totalWeight = 0;
-                document.querySelectorAll('.package-group').forEach(pkgGroup => { const qty = parseInt(pkgGroup.querySelector('.pkg-qty')?.value || '1'); const weightPerItem = parseFloat(pkgGroup.querySelector('.pkg-weight')?.value || '0'); if (!isNaN(qty) && !isNaN(weightPerItem) && qty > 0 && weightPerItem >= 0) totalWeight += qty * weightPerItem; });
-                const weightCostRate = 0.03; let weightCost = totalWeight * weightCostRate;
+                let mileageCost = totalMiles * 1.50; // UPDATED mileage rate
+                const weightCostRate = 0.03;
+                let weightCost = totalWeight * weightCostRate;
                 let totalLoadUnloadFee = 0;
-                stopsData.forEach((stop) => { let fee = 0; let driverFee = 0; if (totalWeight > 0) { if (totalWeight <= 50) driverFee = 5; else if (totalWeight <= 250) driverFee = 10; else if (totalWeight <= 500) driverFee = 15; else if (totalWeight <= 1000) driverFee = 20; else if (totalWeight <= 1500) driverFee = 30; else if (totalWeight <= 2000) driverFee = 40; else if (totalWeight <= 2500) driverFee = 50; else driverFee = 60; } if (stop.loadUnload === 'driver') fee = driverFee; else if (stop.loadUnload === 'driver_assist') fee = driverFee / 2; totalLoadUnloadFee += fee; });
+                stopsData.forEach((stop) => {
+                    let fee = 0; let driverFee = 0;
+                    if (totalWeight > 0) {
+                        if (totalWeight <= 50) driverFee = 5;
+                        else if (totalWeight <= 250) driverFee = 10;
+                        else if (totalWeight <= 500) driverFee = 15;
+                        else if (totalWeight <= 1000) driverFee = 20;
+                        else if (totalWeight <= 1500) driverFee = 30;
+                        else if (totalWeight <= 2000) driverFee = 40;
+                        else if (totalWeight <= 2500) driverFee = 50;
+                        else driverFee = 60; // Max $60 for > 2500 lbs
+                    }
+                    if (stop.loadUnload === 'driver') fee = driverFee;
+                    else if (stop.loadUnload === 'driver_assist') fee = driverFee / 2;
+                    totalLoadUnloadFee += fee;
+                });
                 let totalStairCost = 0;
                 stopsData.forEach(stop => { if (stop.stairs && stop.floor) { const floor = parseInt(stop.floor); if (!isNaN(floor) && floor > 1) totalStairCost += (floor - 1) * 5.00; } });
+                
                 let servicesMultiplier = 1.0; let flatServiceFees = 0;
-                if (document.getElementById('insideDelivery').checked) servicesMultiplier += 0.05; if (document.getElementById('hazardous').checked) servicesMultiplier += 0.15; if (document.getElementById('bioHazardous').checked) servicesMultiplier += 0.20; if (document.getElementById('extraLaborer').checked) flatServiceFees += 35.00;
-                const urgency = document.getElementById('urgency').value; let urgencyPremium = 0; if (urgency === 'expedited') urgencyPremium = 50.00;
-                const numStops = stopsData.length; let additionalStopFee = 0; if (numStops > 2) additionalStopFee = (numStops - 2) * 3.50;
-                const baseCost = mileageCost + weightCost; const costAfterMultiplier = baseCost * servicesMultiplier;
+                if (document.getElementById('insideDelivery').checked) servicesMultiplier += 0.05;
+                if (document.getElementById('hazardousBio').checked) servicesMultiplier += 0.20; // Consolidated
+                if (document.getElementById('fragileHandling').checked) servicesMultiplier += 0.05; // NEW Fragile fee (5%)
+                if (document.getElementById('extraLaborer').checked) flatServiceFees += 35.00;
+                
+                const urgency = document.getElementById('urgency').value;
+                let urgencyPremium = 0;
+                if (urgency === 'asap_2hr') urgencyPremium = 65.00;
+                else if (urgency === 'expedited_4hr') urgencyPremium = 50.00;
+                else if (urgency === 'late_night') urgencyPremium = 75.00;
+                // 'standard_9pm' has 0 premium
+                
+                const numStops = stopsData.length; let additionalStopFee = 0;
+                if (numStops > 2) additionalStopFee = (numStops - 2) * 3.50;
+                
+                const baseCost = mileageCost + weightCost;
+                const costAfterMultiplier = baseCost * servicesMultiplier;
                 const totalCost = costAfterMultiplier + totalLoadUnloadFee + totalStairCost + flatServiceFees + urgencyPremium + additionalStopFee;
                 finalQuote = Math.max(0, totalCost);
-                // --- End Cost Calculation ---
 
-                // --- Display Quote & Buttons ---
                 quoteResultEl.textContent = `Estimated Quote: $${finalQuote.toFixed(2)}`;
                 bookBtn.style.display = 'inline-block'; downloadBtn.style.display = 'inline-block';
                 bookBtn.disabled = false; downloadBtn.disabled = false;
@@ -752,16 +868,33 @@
                     // *** IMPORTANT: Use your DEPLOYED backend URL here ***
                     const LOGGING_BACKEND_URL_CALCULATE_QUOTE = "https://delivery-quote-backend.onrender.com/log-calculated-quote"; 
 
-                    // --- Gather data ---
                     const contactDetails = { name: document.getElementById('contactName')?.value || '', email: document.getElementById('contactEmail')?.value || '', phone: document.getElementById('contactPhone')?.value || '', company: document.getElementById('contactCompany')?.value || '' };
                     const packageGroups = document.querySelectorAll('.package-group');
-                    const packagesData = Array.from(packageGroups).map(group => ({ qty: parseInt(group.querySelector('.pkg-qty')?.value || '1'), desc: group.querySelector('.pkg-desc')?.value || '', weight: parseFloat(group.querySelector('.pkg-weight')?.value || '0'), length: parseFloat(group.querySelector('.pkg-length')?.value || '0'), width: parseFloat(group.querySelector('.pkg-width')?.value || '0'), height: parseFloat(group.querySelector('.pkg-height')?.value || '0'), unit: group.querySelector('.pkg-unit')?.value || 'inches' }));
-                    const serviceDetails = { vehicleType: document.getElementById('vehicleType')?.value || '', pickupDate: document.getElementById('pickupDate')?.value || '', pickupTime: document.getElementById('pickupTime')?.value || '', urgency: document.getElementById('urgency')?.value || '', insideDelivery: document.getElementById('insideDelivery')?.checked || false, hazardous: document.getElementById('hazardous')?.checked || false, bioHazardous: document.getElementById('bioHazardous')?.checked || false, extraLaborer: document.getElementById('extraLaborer')?.checked || false };
+                    const packagesData = Array.from(packageGroups).map(group => ({
+                        qty: parseInt(group.querySelector('.pkg-qty')?.value || '1'),
+                        desc: group.querySelector('.pkg-desc')?.value || '',
+                        weight: parseFloat(group.querySelector('.pkg-weight')?.value || '0'),
+                        length: parseFloat(group.querySelector('.pkg-length')?.value || '0'),
+                        width: parseFloat(group.querySelector('.pkg-width')?.value || '0'),
+                        height: parseFloat(group.querySelector('.pkg-height')?.value || '0'),
+                        unit: group.querySelector('.pkg-unit')?.value || 'inches',
+                        fileName: group.querySelector('.pkg-upload')?.files[0]?.name || null // Get filename
+                    }));
+                    const serviceDetails = {
+                        vehicleType: document.getElementById('vehicleType')?.value || '',
+                        pickupDate: document.getElementById('pickupDate')?.value || '',
+                        pickupTime: document.getElementById('pickupTime')?.value || '',
+                        urgency: document.getElementById('urgency')?.value || '',
+                        specialNotes: document.getElementById('specialNotes')?.value || '',
+                        insideDelivery: document.getElementById('insideDelivery')?.checked || false,
+                        hazardousBio: document.getElementById('hazardousBio')?.checked || false,
+                        fragileHandling: document.getElementById('fragileHandling')?.checked || false,
+                        extraLaborer: document.getElementById('extraLaborer')?.checked || false
+                    };
                     const leadData = { contactDetails: contactDetails, stopsData: stopsData, packagesData: packagesData, serviceDetails: serviceDetails, totalMiles: calculatedTotalMiles, calculatedQuote: finalQuote };
 
                     console.log("Sending calculated quote data to backend:", JSON.stringify(leadData, null, 2));
 
-                    // --- Fetch call to backend logging endpoint ---
                     fetch(LOGGING_BACKEND_URL_CALCULATE_QUOTE, {
                         method: 'POST',
                         cache: 'no-cache',
@@ -773,24 +906,16 @@
                         if (!response.ok) {
                             return response.json().then(errData => {
                                 throw new Error(`Backend logging failed: ${response.status} ${response.statusText} - ${errData.message || 'No details'}`);
-                            }).catch(() => {
-                                throw new Error(`Backend logging failed: ${response.status} ${response.statusText}`);
-                            });
+                            }).catch(() => { throw new Error(`Backend logging failed: ${response.status} ${response.statusText}`); });
                         }
                         return response.json();
                     })
                     .then(result => {
                         console.log('Backend Calculated Quote Logging Response:', result);
-                        if (result && result.status === 'success') {
-                            console.log('Calculated quote data successfully logged by backend.');
-                        } else {
-                            console.error('Backend reported an error logging calculated quote:', result ? result.message : 'Unknown error');
-                        }
+                        if (result && result.status === 'success') { console.log('Calculated quote data successfully logged by backend.'); }
+                        else { console.error('Backend reported an error logging calculated quote:', result ? result.message : 'Unknown error'); }
                     })
-                    .catch(error => {
-                        console.error('Error sending calculated quote data to backend:', error);
-                        // Don't necessarily alert user for this background logging failure
-                    });
+                    .catch(error => { console.error('Error sending calculated quote data to backend:', error); });
                 } catch (logError) { console.error("Error preparing/sending calculated quote data to backend:", logError); }
             }
         }
@@ -811,13 +936,36 @@
             summaryText += "\nPackages:\n";
             const packageGroups = document.querySelectorAll('.package-group');
             if (packageGroups.length === 0) { summaryText += "  (No packages added)\n"; }
-            else { packageGroups.forEach((pkgGroup, j) => { const pkgQty = pkgGroup.querySelector('.pkg-qty')?.value || '1'; const pkgDesc = pkgGroup.querySelector('.pkg-desc')?.value || 'N/A'; const pkgWeight = pkgGroup.querySelector('.pkg-weight')?.value || '0'; const pkgLength = pkgGroup.querySelector('.pkg-length')?.value || '0'; const pkgWidth = pkgGroup.querySelector('.pkg-width')?.value || '0'; const pkgHeight = pkgGroup.querySelector('.pkg-height')?.value || '0'; const pkgUnit = pkgGroup.querySelector('.pkg-unit')?.value || 'inches'; summaryText += `  Package ${j+1} (${pkgQty}x): ${pkgDesc}\n`; summaryText += `    Wt(ea): ${pkgWeight} lbs, Dim(ea): ${pkgLength}x${pkgWidth}x${pkgHeight} ${pkgUnit}\n`; }); }
+            else { packageGroups.forEach((pkgGroup, j) => {
+                     const pkgQty = pkgGroup.querySelector('.pkg-qty')?.value || '1';
+                     const pkgDesc = pkgGroup.querySelector('.pkg-desc')?.value || 'N/A';
+                     const pkgWeight = pkgGroup.querySelector('.pkg-weight')?.value || '0';
+                     const pkgLength = pkgGroup.querySelector('.pkg-length')?.value || '0';
+                     const pkgWidth = pkgGroup.querySelector('.pkg-width')?.value || '0';
+                     const pkgHeight = pkgGroup.querySelector('.pkg-height')?.value || '0';
+                     const pkgUnit = pkgGroup.querySelector('.pkg-unit')?.value || 'inches';
+                     const pkgUploadInput = pkgGroup.querySelector('.pkg-upload');
+                     let pkgUploadName = 'None';
+                     if (pkgUploadInput && pkgUploadInput.files && pkgUploadInput.files.length > 0) {
+                         pkgUploadName = pkgUploadInput.files[0].name;
+                     }
+                     summaryText += `  Package ${j+1} (${pkgQty}x): ${pkgDesc}\n`;
+                     summaryText += `    Wt(ea): ${pkgWeight} lbs, Dim(ea): ${pkgLength}x${pkgWidth}x${pkgHeight} ${pkgUnit}, File: ${pkgUploadName}\n`;
+                 });
+            }
             summaryText += "\nDetails & Services:\n";
-            summaryText += `  Vehicle: ${document.getElementById('vehicleType').value || 'N/A'}\n`;
+            const vehicleTypeSelect = document.getElementById('vehicleType');
+            const vehicleTypeText = vehicleTypeSelect.value ? vehicleTypeSelect.options[vehicleTypeSelect.selectedIndex].text : 'N/A';
+            summaryText += `  Vehicle: ${vehicleTypeText}\n`;
             summaryText += `  Pickup Date/Time: ${document.getElementById('pickupDate').value || 'N/A'} ${document.getElementById('pickupTime').value || 'N/A'}\n`;
-            const urgencySelect = document.getElementById('urgency'); const urgencyText = urgencySelect.value ? urgencySelect.selectedOptions[0].text : 'N/A'; summaryText += `  Urgency: ${urgencyText}\n`;
-            summaryText += `  Inside Delivery: ${document.getElementById('insideDelivery').checked ? 'Yes' : 'No'}\n`; summaryText += `  Hazardous: ${document.getElementById('hazardous').checked ? 'Yes' : 'No'}\n`;
-            summaryText += `  Bio-Hazardous: ${document.getElementById('bioHazardous').checked ? 'Yes' : 'No'}\n`; summaryText += `  Extra Laborer: ${document.getElementById('extraLaborer').checked ? 'Yes' : 'No'}\n`;
+            const urgencySelect = document.getElementById('urgency');
+            const urgencyText = urgencySelect.value ? urgencySelect.options[urgencySelect.selectedIndex].text : 'N/A';
+            summaryText += `  Urgency: ${urgencyText}\n`; // Display text without fee
+            summaryText += `  Special Notes: ${document.getElementById('specialNotes')?.value || 'None'}\n`;
+            summaryText += `  Inside Delivery: ${document.getElementById('insideDelivery').checked ? 'Yes' : 'No'}\n`;
+            summaryText += `  Hazardous/Bio-Hazardous: ${document.getElementById('hazardousBio').checked ? 'Yes' : 'No'}\n`; // Updated
+            summaryText += `  Fragile/Special Handling: ${document.getElementById('fragileHandling').checked ? 'Yes' : 'No'}\n`; // New
+            summaryText += `  Extra Laborer: ${document.getElementById('extraLaborer').checked ? 'Yes' : 'No'}\n`;
             summaryText += `  Total Distance: ${calculatedTotalMiles > 0 ? calculatedTotalMiles.toFixed(1) + ' miles' : 'Not Calculated'}\n`;
             summaryText += "\nQuote:\n";
             summaryText += `  ${document.getElementById('quoteResult').textContent || 'Not Calculated'}\n`;
@@ -852,55 +1000,76 @@
             // --- Gather Data ---
             const stopGroups = document.querySelectorAll('.address-group'); const stopsDataForBackend = Array.from(stopGroups).map(group => ({ address: group.querySelector('.stop-addr')?.value.trim() || '', loadUnload: group.querySelector('.load-unload-select')?.value || '', stairs: group.querySelector('.stairs-check')?.checked || false, floor: group.querySelector('.floor-count')?.value || '' })).filter(stop => stop.address.length > 0);
             if (stopsDataForBackend.length < 2) { alert("Error: Need 2+ stops for payment."); return; }
-            const packageGroups = document.querySelectorAll('.package-group'); const packagesData = Array.from(packageGroups).map(group => ({ qty: parseInt(group.querySelector('.pkg-qty')?.value || '1'), desc: group.querySelector('.pkg-desc')?.value || '', weight: parseFloat(group.querySelector('.pkg-weight')?.value || '0'), length: parseFloat(group.querySelector('.pkg-length')?.value || '0'), width: parseFloat(group.querySelector('.pkg-width')?.value || '0'), height: parseFloat(group.querySelector('.pkg-height')?.value || '0'), unit: group.querySelector('.pkg-unit')?.value || 'inches' }));
+
+            const packageGroups = document.querySelectorAll('.package-group');
+            const packagesData = Array.from(packageGroups).map(group => ({
+                qty: parseInt(group.querySelector('.pkg-qty')?.value || '1'),
+                desc: group.querySelector('.pkg-desc')?.value || '',
+                weight: parseFloat(group.querySelector('.pkg-weight')?.value || '0'),
+                length: parseFloat(group.querySelector('.pkg-length')?.value || '0'),
+                width: parseFloat(group.querySelector('.pkg-width')?.value || '0'),
+                height: parseFloat(group.querySelector('.pkg-height')?.value || '0'),
+                unit: group.querySelector('.pkg-unit')?.value || 'inches',
+                fileName: group.querySelector('.pkg-upload')?.files[0]?.name || null // Get filename
+            }));
             if (packagesData.length === 0) { alert("Error: Need package details for payment."); return; }
-            const serviceDetails = { vehicleType: document.getElementById('vehicleType')?.value || '', pickupDate: document.getElementById('pickupDate')?.value || '', pickupTime: document.getElementById('pickupTime')?.value || '', urgency: document.getElementById('urgency')?.value || '', insideDelivery: document.getElementById('insideDelivery')?.checked || false, hazardous: document.getElementById('hazardous')?.checked || false, bioHazardous: document.getElementById('bioHazardous')?.checked || false, extraLaborer: document.getElementById('extraLaborer')?.checked || false };
+
+            const serviceDetails = {
+                vehicleType: document.getElementById('vehicleType')?.value || '',
+                pickupDate: document.getElementById('pickupDate')?.value || '',
+                pickupTime: document.getElementById('pickupTime')?.value || '',
+                urgency: document.getElementById('urgency')?.value || '',
+                specialNotes: document.getElementById('specialNotes')?.value || '',
+                insideDelivery: document.getElementById('insideDelivery')?.checked || false,
+                hazardousBio: document.getElementById('hazardousBio')?.checked || false,
+                fragileHandling: document.getElementById('fragileHandling')?.checked || false,
+                extraLaborer: document.getElementById('extraLaborer')?.checked || false
+            };
             if (!serviceDetails.vehicleType || !serviceDetails.pickupDate || !serviceDetails.pickupTime || !serviceDetails.urgency) { alert("Error: Missing service details."); return; }
-            const customerEmail = document.getElementById('contactEmail')?.value || ''; const customerName = document.getElementById('contactName')?.value || ''; const customerPhone = document.getElementById('contactPhone')?.value || ''; const customerCompany = document.getElementById('contactCompany')?.value || '';
+
+            const customerEmail = document.getElementById('contactEmail')?.value || '';
+            const customerName = document.getElementById('contactName')?.value || '';
+            const customerPhone = document.getElementById('contactPhone')?.value || '';
+            const customerCompany = document.getElementById('contactCompany')?.value || '';
+            const contactDetails = { name: customerName, email: customerEmail, phone: customerPhone, company: customerCompany };
              if (!customerName) { alert("Error: Contact name required."); return; } if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) { alert("Error: Valid contact email required."); return; }
+
             const totalMiles = calculatedTotalMiles; if (typeof totalMiles !== 'number' || totalMiles < 0) { alert("Error: Distance not calculated."); return; }
             const quoteAmount = bookBtn.dataset.quoteAmount; if (!quoteAmount || isNaN(parseFloat(quoteAmount))) { alert("Error: Quote amount not available."); return; }
 
             // --- Prepare Fetch Request to /create-checkout-session ---
             bookBtn.textContent = 'Processing...'; bookBtn.disabled = true; document.getElementById('downloadSummaryBtn').disabled = true;
             try {
-                // *** IMPORTANT: Replace with your DEPLOYED backend URL when live ***
-                const CHECKOUT_BACKEND_URL = 'https://delivery-quote-backend.onrender.com/create-checkout-session'; // CORRECTED URL
-                // const CHECKOUT_BACKEND_URL = 'http://localhost:4242/create-checkout-session'; // For local testing
+                // *** IMPORTANT: Use your DEPLOYED backend URL here ***
+                const CHECKOUT_BACKEND_URL = 'https://delivery-quote-backend.onrender.com/create-checkout-session'; 
 
                 console.log(`Attempting to fetch from: ${CHECKOUT_BACKEND_URL}`);
                 const response = await fetch(CHECKOUT_BACKEND_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    // Send all necessary data for logging AND Stripe session creation
                     body: JSON.stringify({
-                        contactDetails: { name: customerName, email: customerEmail, phone: customerPhone, company: customerCompany },
+                        contactDetails: contactDetails,
                         stopsData: stopsDataForBackend,
                         packagesData: packagesData,
                         serviceDetails: serviceDetails,
                         totalMiles: totalMiles,
-                        calculatedQuote: parseFloat(quoteAmount) // Send the final quote
+                        calculatedQuote: parseFloat(quoteAmount)
                     }),
                 });
-                 // Handle potential errors from the backend (logging or Stripe)
                  if (!response.ok) {
                      let errorMsg = `Payment/Logging Error: ${response.status} ${response.statusText}`;
-                     try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; } // Try to get specific error from backend
+                     try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
                      catch(e) { console.warn("Could not parse error response body:", e); }
                      throw new Error(errorMsg);
                  }
-                // If backend was successful (logged and got Stripe URL)
                 const session = await response.json();
                 if (session.url) {
                     console.log("Redirecting to Stripe:", session.url);
-                    window.location.href = session.url; // Redirect user
+                    window.location.href = session.url;
                 } else {
-                    // Should not happen if response.ok is true, but handle defensively
                     throw new Error("Invalid response from server - no session URL received.")
                 }
             } catch (error) {
-                // Catch fetch errors or errors thrown from backend response handling
                 console.error('Checkout process failed:', error);
                 alert(`Error setting up payment: ${error.message}.`);
-                // Re-enable buttons on error
                 bookBtn.textContent = 'Proceed to Payment';
                 bookBtn.disabled = false;
                 document.getElementById('downloadSummaryBtn').disabled = false;
@@ -911,3 +1080,6 @@
 
 </body>
 </html>
+```
+
+After replacing the content of your `Delivery_Quote_Frontend/index.html` with this, save it, commit, push to GitHub, and redeploy your frontend on Render. Then test the "Calculate Quote" functionality and check your backend logs and PostgreSQL databa
