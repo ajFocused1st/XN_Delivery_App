@@ -175,6 +175,17 @@
     /* Quote Result Styling */
     #quoteResult { margin-top: 15px; padding: 15px; background-color: #e2f0ff; border: 1px solid #b8d4fe; border-radius: 4px; font-weight: bold;
       color: #21409A; text-align: center; font-size: 1.1em; }
+    /* Weight Warning Styling */
+    #weightWarning {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+        color: #856404;
+        border-radius: 4px;
+        text-align: center;
+        display: none; /* Hidden by default */
+    }
     /* Style for required field errors applied via JS */
     input.error-border, select.error-border, textarea.error-border,
     input[style*="border-color: red"], select[style*="border-color: red"], textarea[style*="border-color: red"] {
@@ -295,12 +306,15 @@
     <div class="form-step" id="step-3">
       <h3>Step 3: Service Details</h3>
       <label for="vehicleType">Select Vehicle Type:</label>
+      <!-- UPDATED VEHICLE LIST -->
       <select id="vehicleType" required>
         <option value="">--Select--</option>
-        <option value="cargo_van_high_roof">Cargo Van (High Roof)</option>
-        <option value="cargo_van">Cargo Van</option>
-        <option value="pickup_truck">Pickup Truck</option>
+        <option value="car">Car</option>
         <option value="suv">SUV</option>
+        <option value="pickup_truck">Pickup Truck</option>
+        <option value="cargo_van">Cargo Van</option>
+        <option value="cargo_van_high_roof">Cargo Van (High Roof)</option>
+        <option value="box_truck">Box Truck</option>
       </select>
       <label for="pickupDate">Pickup Date:</label>
       <input type="date" id="pickupDate" required />
@@ -342,6 +356,7 @@
       <p>Review your details below. Click "Calculate Quote" to see the estimated price.</p>
       <div class="summary-section" id="summaryContainer">
           </div>
+      <div id="weightWarning"></div>
       <h3 id="quoteResult"></h3>
       <button type="button" class="secondary" onclick="goToPrevStep(4)">Previous</button>
       <button type="button" class="primary" onclick="calculateQuote()">Calculate Quote</button>
@@ -715,6 +730,7 @@
           document.getElementById('quoteResult').textContent = '';
           document.getElementById('bookNowBtn').style.display = 'none';
           document.getElementById('downloadSummaryBtn').style.display = 'none';
+          document.getElementById('weightWarning').style.display = 'none'; // Hide warning
         }
 
 
@@ -753,9 +769,12 @@
             const milesSummaryEl = document.getElementById('summary-miles');
             const bookBtn = document.getElementById('bookNowBtn');
             const downloadBtn = document.getElementById('downloadSummaryBtn');
+            const weightWarningEl = document.getElementById('weightWarning');
+            
             quoteResultEl.textContent = 'Calculating... Please Wait';
             milesSummaryEl.textContent = 'Total Distance: Calculating...';
             bookBtn.style.display = 'none'; downloadBtn.style.display = 'none';
+            weightWarningEl.style.display = 'none'; // Hide warning initially
             bookBtn.disabled = true; downloadBtn.disabled = true;
             calculatedTotalMiles = 0;
 
@@ -811,7 +830,32 @@
             }
 
             try {
-                let mileageCost = totalMiles * 1.50; // UPDATED mileage rate
+                // --- NEW: Vehicle Mileage Rate Logic ---
+                const vehicleType = document.getElementById('vehicleType').value;
+                const vehicleSelect = document.getElementById('vehicleType');
+                const vehicleText = vehicleSelect.options[vehicleSelect.selectedIndex].text;
+                let mileageRate = 0;
+                let maxWeight = 0;
+
+                switch (vehicleType) {
+                    case 'car': mileageRate = 0.80; maxWeight = 100; break;
+                    case 'suv': mileageRate = 1.10; maxWeight = 300; break;
+                    case 'pickup_truck': mileageRate = 1.25; maxWeight = 1000; break;
+                    case 'cargo_van': mileageRate = 1.50; maxWeight = 2500; break;
+                    case 'cargo_van_high_roof': mileageRate = 1.85; maxWeight = 3500; break;
+                    case 'box_truck': mileageRate = 2.24; maxWeight = 4000; break;
+                    default:
+                        quoteResultEl.textContent = 'Error: Please select a valid vehicle type.';
+                        return; // Stop the calculation
+                }
+
+                // --- NEW: Weight Capacity Warning ---
+                if (totalWeight > maxWeight) {
+                    weightWarningEl.textContent = `Warning: The total weight of ${totalWeight.toFixed(1)} lbs exceeds the typical capacity for a ${vehicleText}. Please verify your selection.`;
+                    weightWarningEl.style.display = 'block';
+                }
+
+                let mileageCost = totalMiles * mileageRate;
                 const weightCostRate = 0.03;
                 let weightCost = totalWeight * weightCostRate;
                 let totalLoadUnloadFee = 0;
@@ -845,7 +889,6 @@
                 if (urgency === 'asap_2hr') urgencyPremium = 65.00;
                 else if (urgency === 'expedited_4hr') urgencyPremium = 50.00;
                 else if (urgency === 'late_night') urgencyPremium = 75.00;
-                // 'standard_9pm' has 0 premium
                 
                 const numStops = stopsData.length; let additionalStopFee = 0;
                 if (numStops > 2) additionalStopFee = (numStops - 2) * 3.50;
@@ -967,6 +1010,12 @@
             summaryText += `  Fragile/Special Handling: ${document.getElementById('fragileHandling').checked ? 'Yes' : 'No'}\n`; // New
             summaryText += `  Extra Laborer: ${document.getElementById('extraLaborer').checked ? 'Yes' : 'No'}\n`;
             summaryText += `  Total Distance: ${calculatedTotalMiles > 0 ? calculatedTotalMiles.toFixed(1) + ' miles' : 'Not Calculated'}\n`;
+            
+            const weightWarningEl = document.getElementById('weightWarning');
+            if (weightWarningEl && weightWarningEl.style.display !== 'none') {
+                summaryText += `\nWarning:\n  ${weightWarningEl.textContent}\n`;
+            }
+
             summaryText += "\nQuote:\n";
             summaryText += `  ${document.getElementById('quoteResult').textContent || 'Not Calculated'}\n`;
             return summaryText;
