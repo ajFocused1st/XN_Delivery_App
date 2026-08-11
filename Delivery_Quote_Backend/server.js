@@ -8,6 +8,172 @@ const { Pool } = require('pg'); // PostgreSQL client for Node.js
 
 const app = express();
 
+const QUOTE_RULES = Object.freeze({
+  vehicleRates: Object.freeze({
+    car: 0.80,
+    suv: 1.10,
+    pickup_truck: 1.25,
+    cargo_van: 1.50,
+    cargo_van_high_roof: 1.85,
+    box_truck: 2.24,
+  }),
+  weightRate: 0.03,
+  maxTotalWeight: 4000,
+  urgencyFees: Object.freeze({
+    standard_9pm: 0,
+    asap_2hr: 65,
+    expedited_4hr: 50,
+    late_night: 75,
+  }),
+  additionalStopFee: 3.50,
+  extraLaborerFee: 35,
+  stairFeePerFloor: 5,
+});
+
+function parseFiniteNumber(value, fieldName) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(fieldName + ' must be a valid number.');
+  }
+  return parsed;
+}
+
+function isSelected(value) {
+  return value === true || value === 1 || value === '1' || value === 'true' || value === 'on';
+}
+
+function getDriverHandlingFee(totalWeight) {
+  if (totalWeight <= 0) return 0;
+  if (totalWeight <= 50) return 5;
+  if (totalWeight <= 250) return 10;
+  if (totalWeight <= 500) return 15;
+  if (totalWeight <= 1000) return 20;
+  if (totalWeight <= 1500) return 30;
+  if (totalWeight <= 2000) return 40;
+  if (totalWeight <= 2500) return 50;
+  return 60;
+}
+
+function calculateAuthoritativeQuote(leadData) {
+  if (!leadData || typeof leadData !== 'object') {
+    throw new Error('Quote details are required.');
+  }
+
+  const totalMiles = parseFiniteNumber(leadData.totalMiles, 'Total miles');
+  if (totalMiles < 0 || totalMiles > 2500) {
+    throw new Error('Total miles must be between 0 and 2500.');
+  }
+
+  const stopsData = leadData.stopsData;
+  if (!Array.isArray(stopsData) || stopsData.length < 2) {
+    throw new Error('At least two stops are required.');
+  }
+
+  const packagesData = leadData.packagesData;
+  if (!Array.isArray(packagesData) || packagesData.length < 1) {
+    throw new Error('At least one package is required.');
+  }
+
+  let totalWeight = 0;
+  for (const packageData of packagesData) {
+    const quantity = parseFiniteNumber(packageData?.qty, 'Package quantity');
+    const weightPerItem = parseFiniteNumber(packageData?.weight, 'Package weight');
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+      throw new Error('Package quantity must be a whole number between 1 and 999.');
+    }
+    if (weightPerItem < 0 || weightPerItem > QUOTE_RULES.maxTotalWeight) {
+      throw new Error('Package weight is outside the permitted range.');
+    }
+    totalWeight += quantity * weightPerItem;
+  }
+
+  if (totalWeight > QUOTE_RULES.maxTotalWeight) {
+    throw new Error('Total weight exceeds the maximum limit of 4000 lbs.');
+  }
+
+  const serviceDetails = leadData.serviceDetails || {};
+  const vehicleType = serviceDetails.vehicleType;
+  const mileageRate = QUOTE_RULES.vehicleRates[vehicleType];
+  if (!mileageRate) {
+    throw new Error('A valid vehicle type is required.');
+  }
+
+  let totalLoadUnloadFee = 0;
+  let totalStairCost = 0;
+  const driverHandlingFee = getDriverHandlingFee(totalWeight);
+  const allowedResponsibilities = new Set(['customer', 'driver', 'driver_assist']);
+
+  for (const stop of stopsData) {
+    const responsibility = stop?.loadUnload;
+    if (!allowedResponsibilities.has(responsibility)) {
+      throw new Error('Each stop must specify a valid loading responsibility.');
+    }
+
+    if (responsibility === 'driver') {
+      totalLoadUnloadFee += driverHandlingFee;
+    } else if (responsibility === 'driver_assist') {
+      totalLoadUnloadFee += driverHandlingFee / 2;
+    }
+
+    if (isSelected(stop?.stairs)) {
+      const floor = parseFiniteNumber(stop?.floor, 'Floor number');
+      if (!Number.isInteger(floor) || floor < 1) {
+        throw new Error('Floor number must be a positive whole number when stairs are selected.');
+      }
+      if (floor > 1) {
+        totalStairCost += (floor - 1) * QUOTE_RULES.stairFeePerFloor;
+      }
+    }
+  }
+
+  const urgency = serviceDetails.urgency;
+  if (!Object.prototype.hasOwnProperty.call(QUOTE_RULES.urgencyFees, urgency)) {
+    throw new Error('A valid urgency option is required.');
+  }
+
+  const mileageCost = totalMiles * mileageRate;
+  const weightCost = totalWeight * QUOTE_RULES.weightRate;
+
+  let servicesMultiplier = 1;
+  if (isSelected(serviceDetails.insideDelivery)) servicesMultiplier += 0.05;
+  if (isSelected(serviceDetails.hazardousBio) || isSelected(serviceDetails.hazardous) || isSelected(serviceDetails.bioHazardous)) {
+    servicesMultiplier += 0.20;
+  }
+  if (isSelected(serviceDetails.fragileHandling)) servicesMultiplier += 0.05;
+
+  const flatServiceFees = isSelected(serviceDetails.extraLaborer)
+    ? QUOTE_RULES.extraLaborerFee
+    : 0;
+  const urgencyPremium = QUOTE_RULES.urgencyFees[urgency];
+  const additionalStopFee = Math.max(0, stopsData.length - 2) * QUOTE_RULES.additionalStopFee;
+  const baseCost = mileageCost + weightCost;
+  const costAfterMultiplier = baseCost * servicesMultiplier;
+  const totalCost =
+    costAfterMultiplier +
+    totalLoadUnloadFee +
+    totalStairCost +
+    flatServiceFees +
+    urgencyPremium +
+    additionalStopFee;
+
+  return {
+    total: Number(Math.max(0, totalCost).toFixed(2)),
+    totalMiles: Number(totalMiles.toFixed(2)),
+    totalWeight: Number(totalWeight.toFixed(2)),
+    breakdown: {
+      mileageCost: Number(mileageCost.toFixed(2)),
+      weightCost: Number(weightCost.toFixed(2)),
+      servicesMultiplier: Number(servicesMultiplier.toFixed(2)),
+      loadUnloadFee: Number(totalLoadUnloadFee.toFixed(2)),
+      stairCost: Number(totalStairCost.toFixed(2)),
+      flatServiceFees: Number(flatServiceFees.toFixed(2)),
+      urgencyPremium: Number(urgencyPremium.toFixed(2)),
+      additionalStopFee: Number(additionalStopFee.toFixed(2)),
+    },
+  };
+}
+
+
 // --- Middleware ---
 app.use(cors({
   origin: process.env.YOUR_WEBSITE_URL || '*', // Allow configured origin or wildcard
@@ -159,68 +325,122 @@ app.post('/log-calculated-quote', async (req, res) => {
   console.log(`POST /log-calculated-quote received at ${new Date().toISOString()}`);
   const leadData = req.body;
 
-  // Basic validation for essential data
-  if (!leadData || !leadData.contactDetails || !leadData.calculatedQuote) {
-    console.warn("Incomplete data for /log-calculated-quote:", leadData);
-    return res.status(400).json({ status: "error", message: "Incomplete lead data received." });
+  if (!leadData || !leadData.contactDetails) {
+    return res.status(400).json({ status: 'error', message: 'Incomplete lead data received.' });
   }
 
   try {
-    await logLeadDataToDB(leadData, "CalculatedQuote");
-    res.status(200).json({ status: "success", message: "Quote data logged to DB." });
+    const authoritativeQuote = calculateAuthoritativeQuote(leadData);
+    const submittedQuote = Number(leadData.calculatedQuote);
+    if (Number.isFinite(submittedQuote) && Math.abs(submittedQuote - authoritativeQuote.total) > 0.01) {
+      console.warn('Browser quote did not match the server quote.', {
+        submittedQuote,
+        authoritativeQuote: authoritativeQuote.total,
+      });
+    }
+
+    const verifiedLeadData = {
+      ...leadData,
+      totalMiles: authoritativeQuote.totalMiles,
+      calculatedQuote: authoritativeQuote.total,
+    };
+    await logLeadDataToDB(verifiedLeadData, 'CalculatedQuote');
+    return res.status(200).json({
+      status: 'success',
+      message: 'Quote data verified and logged.',
+      calculatedQuote: authoritativeQuote.total,
+    });
   } catch (error) {
-    // The error is already logged in logLeadDataToDB
-    res.status(500).json({ status: "error", message: "Failed to log quote data to DB on server." });
+    console.warn('Invalid quote details received for logging:', error.message);
+    return res.status(422).json({ status: 'error', message: error.message });
   }
 });
 
 // --- API Endpoint for Creating Stripe Checkout Session AND Logging Lead ---
 app.post('/create-checkout-session', async (req, res) => {
   console.log(`POST /create-checkout-session received at ${new Date().toISOString()}`);
-  const leadData = req.body; 
+  const leadData = req.body;
 
-  // Basic Validation
-  if (!leadData.calculatedQuote || isNaN(parseFloat(leadData.calculatedQuote)) || !leadData.contactDetails || !leadData.contactDetails.email || !leadData.contactDetails.name || !leadData.stopsData || leadData.stopsData.length < 2 || !leadData.packagesData || leadData.packagesData.length < 1 || !leadData.serviceDetails || !leadData.serviceDetails.vehicleType) {
-     console.error("Incomplete data received for session/logging:", leadData);
-     return res.status(400).json({ error: 'Incomplete or invalid data received.' });
+  if (
+    !leadData ||
+    !leadData.contactDetails ||
+    !leadData.contactDetails.email ||
+    !leadData.contactDetails.name
+  ) {
+    return res.status(400).json({ error: 'Incomplete or invalid contact details received.' });
   }
 
-  // Log data when proceeding to payment
+  let authoritativeQuote;
   try {
-    await logLeadDataToDB(leadData, "CheckoutAttempt");
-  } catch (logError) {
-    console.error("Error logging lead data to DB during checkout attempt (Stripe process will continue):", logError);
-    // Depending on business logic, you might choose to halt payment if logging fails.
-    // For now, we allow Stripe process to continue.
+    authoritativeQuote = calculateAuthoritativeQuote(leadData);
+  } catch (error) {
+    console.warn('Invalid quote details received for checkout:', error.message);
+    return res.status(422).json({ error: error.message });
   }
 
-  // --- Create Stripe Session ---
-  const customerEmail = leadData.contactDetails.email;
-  const orderSummary = `Delivery Quote: ${leadData.stopsData.length} stops (${(parseFloat(leadData.totalMiles) || 0).toFixed(1)} miles). Pickup: ${leadData.serviceDetails.pickupDate || 'N/A'} at ${leadData.serviceDetails.pickupTime || 'N/A'}. Vehicle: ${leadData.serviceDetails.vehicleType || 'N/A'}. First Stop: ${leadData.stopsData[0]?.address.substring(0, 50)}${leadData.stopsData[0]?.address.length > 50 ? '...' : ''}.`.substring(0, 200);
-  const amountInCents = Math.round(parseFloat(leadData.calculatedQuote) * 100);
+  const submittedQuote = Number(leadData.calculatedQuote);
+  if (Number.isFinite(submittedQuote) && Math.abs(submittedQuote - authoritativeQuote.total) > 0.01) {
+    console.warn('Browser quote did not match the server quote.', {
+      submittedQuote,
+      authoritativeQuote: authoritativeQuote.total,
+    });
+  }
 
-  if (amountInCents < 50) { return res.status(400).json({ error: 'Quote amount below minimum charge.' }); }
+  const verifiedLeadData = {
+    ...leadData,
+    totalMiles: authoritativeQuote.totalMiles,
+    calculatedQuote: authoritativeQuote.total,
+  };
+
+  try {
+    await logLeadDataToDB(verifiedLeadData, 'CheckoutAttempt');
+  } catch (logError) {
+    console.error('Error logging lead data during checkout attempt; Stripe checkout will continue:', logError);
+  }
+
+  const amountInCents = Math.round(authoritativeQuote.total * 100);
+  if (amountInCents < 50) {
+    return res.status(400).json({ error: 'Quote amount below minimum charge.' });
+  }
+
+  const customerEmail = verifiedLeadData.contactDetails.email;
+  const firstStopAddress = String(verifiedLeadData.stopsData[0]?.address || '');
+  const orderSummary = `Delivery Quote: ${verifiedLeadData.stopsData.length} stops (${authoritativeQuote.totalMiles.toFixed(1)} miles). Pickup: ${verifiedLeadData.serviceDetails.pickupDate || 'N/A'} at ${verifiedLeadData.serviceDetails.pickupTime || 'N/A'}. Vehicle: ${verifiedLeadData.serviceDetails.vehicleType || 'N/A'}. First Stop: ${firstStopAddress.substring(0, 50)}${firstStopAddress.length > 50 ? '...' : ''}.`.substring(0, 200);
 
   const YOUR_DOMAIN = process.env.YOUR_WEBSITE_URL;
-  if (!YOUR_DOMAIN || YOUR_DOMAIN === 'http://temp.com') { // Check for default placeholder
-      console.error("CRITICAL: YOUR_WEBSITE_URL environment variable is not set correctly in Render for redirects!");
+  if (!YOUR_DOMAIN || YOUR_DOMAIN === 'http://temp.com') {
+    console.error('CRITICAL: YOUR_WEBSITE_URL environment variable is not set correctly in Render for redirects!');
   }
   const successUrl = `${YOUR_DOMAIN || 'https://your-default-success-url.com'}/payment-success.html?session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = YOUR_DOMAIN || 'https://your-default-cancel-url.com'; // Point back to main frontend URL
+  const cancelUrl = YOUR_DOMAIN || 'https://your-default-cancel-url.com';
 
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [ { price_data: { currency: 'usd', product_data: { name: 'Xpedite Now Delivery Quote', description: orderSummary, }, unit_amount: amountInCents, }, quantity: 1, }, ],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Xpedite Now Delivery Quote',
+            description: orderSummary,
+          },
+          unit_amount: amountInCents,
+        },
+        quantity: 1,
+      }],
       mode: 'payment',
-      success_url: successUrl, cancel_url: cancelUrl,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       customer_email: customerEmail || undefined,
     });
-    console.log("Stripe Session Created:", session.id);
-    res.json({ url: session.url });
+    console.log('Stripe Session Created:', session.id);
+    return res.json({
+      url: session.url,
+      calculatedQuote: authoritativeQuote.total,
+    });
   } catch (stripeError) {
     console.error('Stripe API Error:', stripeError);
-    res.status(500).json({ error: `Failed to create payment session: ${stripeError.message}` });
+    return res.status(500).json({ error: `Failed to create payment session: ${stripeError.message}` });
   }
 });
 
