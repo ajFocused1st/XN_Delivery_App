@@ -1025,6 +1025,54 @@ input[type="number"].pkg-qty {
       padding-left: 20px;
     }
 
+
+    /* --- Phase 6: server-verified price breakdown --- */
+    .quote-breakdown {
+      margin: 14px 0 22px;
+      padding: 18px;
+      border: 1px solid #b9cff7;
+      border-radius: 14px;
+      background: #f7faff;
+    }
+
+    .quote-breakdown h4 {
+      margin: 0 0 12px;
+      color: var(--xn-blue-900);
+    }
+
+    .quote-breakdown dl {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 7px 18px;
+      margin: 0;
+    }
+
+    .quote-breakdown dt {
+      color: #47566d;
+    }
+
+    .quote-breakdown dd {
+      margin: 0;
+      color: var(--xn-ink);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    .quote-breakdown .quote-breakdown-total {
+      margin-top: 7px;
+      padding-top: 10px;
+      border-top: 1px solid #cbd8eb;
+      color: var(--xn-blue-900);
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+
+    .quote-verification-note {
+      margin: 13px 0 0;
+      color: var(--xn-muted);
+      font-size: 0.82rem;
+    }
+
     /* --- End Styles --- */
   </style>
 </head>
@@ -1128,7 +1176,7 @@ input[type="number"].pkg-qty {
            <textarea id="pkgDesc1" class="pkg-desc" rows="2" placeholder="Describe item(s)" required></textarea>
           <label for="pkgWeight1">Weight (lbs per item):</label>
           <input type="number" id="pkgWeight1" class="pkg-weight" min="0" step="0.1" placeholder="Weight per item in lbs" required />
-          <small style="display: block; margin-top: -3px; margin-bottom: 10px; color: #6c757d;">Weight cost: $0.03 per pound (total weight).</small>
+          <small style="display: block; margin-top: -3px; margin-bottom: 10px; color: #6c757d;">Enter the weight per item; pricing is verified securely by the server.</small>
           <label>Dimensions (L x W x H per item):</label>
           <div class="inline-group">
             <input type="number" id="pkgLength1" class="pkg-length dimension-input" min="0.1" step="0.1" placeholder="L" required title="Length" />
@@ -1240,6 +1288,11 @@ input[type="number"].pkg-qty {
           </div>
       <div id="weightWarning" role="status" aria-live="polite"></div>
       <h3 id="quoteResult" role="status" aria-live="polite" aria-atomic="true"></h3>
+      <section id="quoteBreakdown" class="quote-breakdown" aria-labelledby="quoteBreakdownTitle" hidden>
+        <h4 id="quoteBreakdownTitle">Server-verified price details</h4>
+        <dl id="quoteBreakdownList"></dl>
+        <p id="quoteVerificationNote" class="quote-verification-note"></p>
+      </section>
       <div class="step-actions quote-actions">
         <button type="button" class="secondary" onclick="goToPrevStep(4)">Back to Service</button>
         <button type="button" class="primary" onclick="calculateQuote()">Calculate Quote</button>
@@ -1260,6 +1313,8 @@ input[type="number"].pkg-qty {
         let distanceService;
         let geocoder;
         let calculatedTotalMiles = 0;
+        let lastVerifiedQuote = null;
+        const BACKEND_BASE_URL = 'https://delivery-quote-backend.onrender.com';
         const stepLabels = ['Route', 'Shipment', 'Service', 'Review'];
         const VEHICLE_CAPACITY_ORDER = [
             'car',
@@ -1661,6 +1716,150 @@ input[type="number"].pkg-qty {
             };
         }
 
+        function collectStopsData() {
+            return Array.from(document.querySelectorAll('.address-group')).map(group => {
+                const stairFlights = group.querySelector('.floor-count')?.value || '';
+                return {
+                    address: group.querySelector('.stop-addr')?.value.trim() || '',
+                    loadUnload: group.querySelector('.load-unload-select')?.value || '',
+                    stairs: group.querySelector('.stairs-check')?.checked || false,
+                    stairFlights,
+                    floor: stairFlights ? String(Number(stairFlights) + 1) : ''
+                };
+            }).filter(stop => stop.address.length > 0);
+        }
+
+        function collectServiceDetails() {
+            return {
+                vehicleType: document.getElementById('vehicleType')?.value || '',
+                pickupDate: document.getElementById('pickupDate')?.value || '',
+                pickupTime: document.getElementById('pickupTime')?.value || '',
+                urgency: document.getElementById('urgency')?.value || '',
+                specialNotes: document.getElementById('specialNotes')?.value || '',
+                insideDelivery: document.getElementById('insideDelivery')?.checked || false,
+                hazardousBio: document.getElementById('hazardousBio')?.checked || false,
+                fragileHandling: document.getElementById('fragileHandling')?.checked || false,
+                extraLaborer: document.getElementById('extraLaborer')?.checked || false
+            };
+        }
+
+        function collectContactDetails() {
+            return {
+                name: document.getElementById('contactName')?.value || '',
+                email: document.getElementById('contactEmail')?.value || '',
+                phone: document.getElementById('contactPhone')?.value || '',
+                company: document.getElementById('contactCompany')?.value || ''
+            };
+        }
+
+        function buildQuoteRequestData() {
+            return {
+                contactDetails: collectContactDetails(),
+                stopsData: collectStopsData(),
+                packagesData: collectPackageDataFromForm(),
+                serviceDetails: collectServiceDetails(),
+                totalMiles: calculatedTotalMiles
+            };
+        }
+
+        async function fetchJsonWithRetry(url, options = {}, attempts = 2, timeoutMs = 30000) {
+            let lastError;
+            for (let attempt = 1; attempt <= attempts; attempt++) {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), timeoutMs);
+                try {
+                    const response = await fetch(url, {
+                        ...options,
+                        cache: 'no-store',
+                        signal: controller.signal
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        const error = new Error(data.message || data.error || `Request failed with status ${response.status}.`);
+                        error.status = response.status;
+                        throw error;
+                    }
+                    return data;
+                } catch (error) {
+                    lastError = error.name === 'AbortError'
+                        ? new Error('The pricing server took too long to respond.')
+                        : error;
+                    if ((error.status >= 400 && error.status < 500) || attempt === attempts) {
+                        throw lastError;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 750));
+                } finally {
+                    clearTimeout(timeout);
+                }
+            }
+            throw lastError || new Error('The pricing server could not be reached.');
+        }
+
+        function formatCurrency(value) {
+            return `${Number(value || 0).toFixed(2)}`;
+        }
+
+        function resetVerifiedQuote() {
+            lastVerifiedQuote = null;
+            const breakdown = document.getElementById('quoteBreakdown');
+            const breakdownList = document.getElementById('quoteBreakdownList');
+            const verificationNote = document.getElementById('quoteVerificationNote');
+            const bookButton = document.getElementById('bookNowBtn');
+            if (bookButton) delete bookButton.dataset.quoteAmount;
+            if (breakdown) breakdown.hidden = true;
+            if (breakdownList) breakdownList.replaceChildren();
+            if (verificationNote) verificationNote.textContent = '';
+        }
+
+        function renderQuoteBreakdown(quote) {
+            const container = document.getElementById('quoteBreakdown');
+            const list = document.getElementById('quoteBreakdownList');
+            const note = document.getElementById('quoteVerificationNote');
+            if (!container || !list || !note || !quote?.breakdown) return;
+            const breakdown = quote.breakdown;
+            const rows = [
+                ['Mileage', breakdown.mileageCost, true],
+                ['Weight', breakdown.weightCost, true],
+                ['Service adjustments', breakdown.serviceAdjustment, false],
+                ['Driver handling', breakdown.loadUnloadFee, false],
+                ['Stairs', breakdown.stairCost, false],
+                ['Extra labor', breakdown.flatServiceFees, false],
+                ['Urgency', breakdown.urgencyPremium, false],
+                ['Additional stops', breakdown.additionalStopFee, false],
+                ['Minimum-charge adjustment', breakdown.minimumAdjustment, false]
+            ];
+            list.replaceChildren();
+            rows.filter(([, value, alwaysShow]) => alwaysShow || Number(value) !== 0).forEach(([label, value]) => {
+                const term = document.createElement('dt');
+                const amount = document.createElement('dd');
+                term.textContent = label;
+                amount.textContent = formatCurrency(value);
+                list.append(term, amount);
+            });
+            const totalLabel = document.createElement('dt');
+            const totalAmount = document.createElement('dd');
+            totalLabel.className = 'quote-breakdown-total';
+            totalAmount.className = 'quote-breakdown-total';
+            totalLabel.textContent = 'Verified total';
+            totalAmount.textContent = formatCurrency(quote.total);
+            list.append(totalLabel, totalAmount);
+            const volume = Number(quote.totalVolumeCubicFeet || 0).toFixed(1);
+            note.textContent = `Verified by Xpedite Now pricing ${quote.quoteVersion || ''}. Shipment: ${Number(quote.totalWeight || 0).toFixed(1)} lbs, approximately ${volume} cubic feet.`;
+            container.hidden = false;
+        }
+
+        async function logCalculatedQuote(leadData) {
+            try {
+                await fetchJsonWithRetry(`${BACKEND_BASE_URL}/log-calculated-quote`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(leadData)
+                }, 1);
+            } catch (error) {
+                console.error('The verified quote could not be logged:', error);
+            }
+        }
+
         function initializeQuoteEnhancements() {
             document.getElementById('quoteForm')?.addEventListener('submit', event => event.preventDefault());
             const pickupDate = document.getElementById('pickupDate');
@@ -1993,7 +2192,7 @@ input[type="number"].pkg-qty {
             <div class="inline-group"> <label for="${qtyId}">Qty:</label> <input type="number" id="${qtyId}" class="pkg-qty" min="1" value="1" required style="width: 70px; margin-right: 15px;"> <label for="${descId}" style="flex-grow: 1;">Description:</label> </div>
             <textarea id="${descId}" class="pkg-desc" rows="2" placeholder="Describe item(s)" required></textarea>
             <label for="${weightId}">Weight (lbs per item):</label> <input type="number" id="${weightId}" class="pkg-weight" min="0" step="0.1" placeholder="Weight per item in lbs" required />
-             <small style="display: block; margin-top: -3px; margin-bottom: 10px; color: #6c757d;">Weight cost: $0.03 per pound (total weight).</small>
+             <small style="display: block; margin-top: -3px; margin-bottom: 10px; color: #6c757d;">Enter the weight per item; pricing is verified securely by the server.</small>
             <label>Dimensions (L x W x H per item):</label>
             <div class="inline-group"> <input type="number" id="${lengthId}" class="pkg-length dimension-input" min="0.1" step="0.1" placeholder="L" required title="Length" /> <span>x</span> <input type="number" id="${widthId}" class="pkg-width dimension-input" min="0.1" step="0.1" placeholder="W" required title="Width"/> <span>x</span> <input type="number" id="${heightId}" class="pkg-height dimension-input" min="0.1" step="0.1" placeholder="H" required title="Height"/> <select id="${unitId}" class="pkg-unit" required title="Dimension Unit"> <option value="inches" selected>Inches</option> <option value="feet">Feet</option> </select> </div>
             <div class="freight-attribute">
@@ -2106,6 +2305,7 @@ input[type="number"].pkg-qty {
             extrasSummary += '<p id="summary-miles">Total Distance: Pending Calculation...</p>';
         
             summaryDiv.innerHTML = contactSummary + addressSummary + packageSummary + extrasSummary;
+            resetVerifiedQuote();
             document.getElementById('quoteResult').textContent = '';
             document.getElementById('bookNowBtn').style.display = 'none';
             document.getElementById('downloadSummaryBtn').style.display = 'none';
@@ -2141,227 +2341,84 @@ input[type="number"].pkg-qty {
 
         // ========== QUOTE CALCULATION & DATA LOGGING TO BACKEND ==========
         async function calculateQuote() {
-             if (!validateStep(1) || !validateStep(2) || !validateStep(3) || !validateStep(4)) { return; }
-             buildSummary(); // Call buildSummary to update the display before calculation
+            if (!validateStep(1) || !validateStep(2) || !validateStep(3) || !validateStep(4)) return;
+            buildSummary();
+        
             const quoteResultEl = document.getElementById('quoteResult');
             const milesSummaryEl = document.getElementById('summary-miles');
             const bookBtn = document.getElementById('bookNowBtn');
             const downloadBtn = document.getElementById('downloadSummaryBtn');
             const weightWarningEl = document.getElementById('weightWarning');
-            
-            quoteResultEl.textContent = 'Calculating... Please Wait';
-            milesSummaryEl.textContent = 'Total Distance: Calculating...';
-            bookBtn.style.display = 'none'; downloadBtn.style.display = 'none';
-            weightWarningEl.style.display = 'none'; // Hide warning initially
-            bookBtn.disabled = true; downloadBtn.disabled = true;
+        
+            quoteResultEl.textContent = 'Calculating route and verifying price…';
+            milesSummaryEl.textContent = 'Total Distance: Calculating…';
+            bookBtn.style.display = 'none';
+            downloadBtn.style.display = 'none';
+            bookBtn.disabled = true;
+            downloadBtn.disabled = true;
+            weightWarningEl.style.display = 'none';
             calculatedTotalMiles = 0;
-
-            const stopGroups = document.querySelectorAll('.address-group');
-            const stopsData = Array.from(stopGroups).map(group => {
-                const stairFlights = group.querySelector('.floor-count').value;
-                return {
-                    address: group.querySelector('.stop-addr').value.trim(),
-                    loadUnload: group.querySelector('.load-unload-select').value,
-                    stairs: group.querySelector('.stairs-check').checked,
-                    stairFlights: stairFlights,
-                    floor: stairFlights ? String(Number(stairFlights) + 1) : ''
-                };
-            }).filter(stop => stop.address.length > 0);
-
+            resetVerifiedQuote();
+        
+            const stopsData = collectStopsData();
             if (stopsData.length < 2) {
-                showFormMessage("Need at least 2 valid stops to calculate a route.");
-                quoteResultEl.textContent = 'Error: Not enough stops.';
+                showFormMessage('Need at least two valid stops to calculate a route.');
+                quoteResultEl.textContent = 'Unable to calculate: not enough stops.';
                 milesSummaryEl.textContent = 'Total Distance: N/A';
                 return;
             }
-
-            let totalMiles = 0;
+        
             try {
-                const stopAddresses = stopsData.map(s => s.address);
-                for (let i = 0; i < stopAddresses.length - 1; i++) {
-                    const distanceMiles = await getDistanceInMiles(stopAddresses[i], stopAddresses[i+1]);
-                    if (typeof distanceMiles !== 'number' || isNaN(distanceMiles)) { throw new Error(`Invalid distance for leg ${i+1}`); }
+                const stopAddresses = stopsData.map(stop => stop.address);
+                let totalMiles = 0;
+                for (let index = 0; index < stopAddresses.length - 1; index++) {
+                    const distanceMiles = await getDistanceInMiles(stopAddresses[index], stopAddresses[index + 1]);
+                    if (!Number.isFinite(distanceMiles)) throw new Error(`Invalid distance for leg ${index + 1}.`);
                     totalMiles += distanceMiles;
                 }
                 calculatedTotalMiles = totalMiles;
-                milesSummaryEl.textContent = `Total Distance: ${totalMiles.toFixed(1)} miles`; // Update summary again
-                console.log(`Total Distance: ${totalMiles.toFixed(1)} miles`);
+                milesSummaryEl.textContent = `Total Distance: ${totalMiles.toFixed(1)} miles`;
             } catch (error) {
-                console.error(`Distance calc failed:`, error);
-                milesSummaryEl.textContent = `Total Distance: Error`;
-                quoteResultEl.textContent = (error instanceof Error) ? error.message : 'Error calculating distance.';
+                console.error('Distance calculation failed:', error);
+                milesSummaryEl.textContent = 'Total Distance: Error';
+                quoteResultEl.textContent = 'Unable to calculate route distance.';
+                showFormMessage(error instanceof Error ? error.message : 'The route distance could not be calculated.');
                 return;
             }
-
-            let finalQuote = 0;
-            let totalWeight = 0;
-            document.querySelectorAll('.package-group').forEach(pkgGroup => {
-                const qty = parseInt(pkgGroup.querySelector('.pkg-qty')?.value || '1');
-                const weightPerItem = parseFloat(pkgGroup.querySelector('.pkg-weight')?.value || '0');
-                if (!isNaN(qty) && !isNaN(weightPerItem) && qty > 0 && weightPerItem >= 0) {
-                    totalWeight += qty * weightPerItem;
-                }
-            });
-            console.log("Total Weight for Quote:", totalWeight);
-
-            // Max weight check
-            if (totalWeight > 4000) {
-                showFormMessage("Total weight exceeds the maximum limit of 4000 lbs. Please adjust package details.");
-                quoteResultEl.textContent = 'Error: Weight limit exceeded.';
-                return;
-            }
-
+        
+            const quoteRequest = buildQuoteRequestData();
             try {
-                // Vehicle pricing remains separate from capacity eligibility.
-                const vehicleType = document.getElementById('vehicleType').value;
-                let mileageRate = 0;
-                let minimumCharge = 0;
-
-                switch (vehicleType) {
-                    case 'car': mileageRate = 1.50; minimumCharge = 30; break;
-                    case 'suv': mileageRate = 1.75; minimumCharge = 40; break;
-                    case 'pickup_truck': mileageRate = 2.00; minimumCharge = 50; break;
-                    case 'cargo_van': mileageRate = 2.25; minimumCharge = 75; break;
-                    case 'cargo_van_high_roof': mileageRate = 2.75; minimumCharge = 95; break;
-                    case 'box_truck': mileageRate = 3.50; minimumCharge = 150; break;
-                    default:
-                        quoteResultEl.textContent = 'Error: Please select a valid vehicle type.';
-                        return;
-                }
-
-                const fitGuidance = updateVehicleGuidance(false);
-                if (!fitGuidance?.selectedFit?.fits) {
-                    const fitMessage = fitGuidance?.recommendedVehicle
-                        ? `Select ${VEHICLE_CAPACITIES[fitGuidance.recommendedVehicle].label} or another enabled compatible vehicle.`
-                        : 'Contact dispatch for a custom equipment review.';
-                    showFormMessage(fitMessage);
-                    quoteResultEl.textContent = 'Error: Selected vehicle is not compatible.';
-                    return;
-                }
-
-                let mileageCost = totalMiles * mileageRate;
-                const weightCostRate = 0.03;
-                let weightCost = totalWeight * weightCostRate;
-                let totalLoadUnloadFee = 0;
-                stopsData.forEach((stop) => {
-                    let fee = 0; let driverFee = 0;
-                    if (totalWeight > 0) {
-                        if (totalWeight <= 50) driverFee = 5;
-                        else if (totalWeight <= 250) driverFee = 10;
-                        else if (totalWeight <= 500) driverFee = 15;
-                        else if (totalWeight <= 1000) driverFee = 20;
-                        else if (totalWeight <= 1500) driverFee = 30;
-                        else if (totalWeight <= 2000) driverFee = 40;
-                        else if (totalWeight <= 2500) driverFee = 50;
-                        else driverFee = 60; // Max $60 for > 2500 lbs
-                    }
-                    if (stop.loadUnload === 'driver') fee = driverFee;
-                    else if (stop.loadUnload === 'driver_assist') fee = driverFee / 2;
-                    totalLoadUnloadFee += fee;
+                const result = await fetchJsonWithRetry(`${BACKEND_BASE_URL}/calculate-quote`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(quoteRequest)
                 });
-                let totalStairCost = 0;
-                stopsData.forEach(stop => {
-                    if (stop.stairs && stop.stairFlights) {
-                        const stairFlights = parseInt(stop.stairFlights);
-                        if (Number.isInteger(stairFlights) && stairFlights > 0) totalStairCost += stairFlights * 5.00;
-                    }
-                });
-                
-                let servicesMultiplier = 1.0; let flatServiceFees = 0;
-                if (document.getElementById('insideDelivery').checked) servicesMultiplier += 0.05;
-                if (document.getElementById('hazardousBio').checked) servicesMultiplier += 0.20; // Consolidated
-                if (document.getElementById('fragileHandling').checked) servicesMultiplier += 0.05; // NEW Fragile fee (5%)
-                if (document.getElementById('extraLaborer').checked) flatServiceFees += 35.00;
-                
-                const urgency = document.getElementById('urgency').value;
-                let urgencyPremium = 0;
-                if (urgency === 'asap_2hr') urgencyPremium = 65.00;
-                else if (urgency === 'expedited_4hr') urgencyPremium = 50.00;
-                else if (urgency === 'late_night') urgencyPremium = 75.00;
-                
-                const numStops = stopsData.length; let additionalStopFee = 0;
-                if (numStops > 2) additionalStopFee = (numStops - 2) * 3.50;
-                
-                const baseCost = mileageCost + weightCost;
-                const costAfterMultiplier = baseCost * servicesMultiplier;
-                const subtotalBeforeMinimum = costAfterMultiplier + totalLoadUnloadFee + totalStairCost + flatServiceFees + urgencyPremium + additionalStopFee;
-                const totalCost = Math.max(subtotalBeforeMinimum, minimumCharge);
-                finalQuote = Math.max(0, totalCost);
-
-                quoteResultEl.textContent = `Estimated Quote: $${finalQuote.toFixed(2)}`;
-                bookBtn.style.display = 'inline-block'; downloadBtn.style.display = 'inline-block';
-                bookBtn.disabled = false; downloadBtn.disabled = false;
-                bookBtn.dataset.quoteAmount = finalQuote.toFixed(2);
-
-            } catch (error) { console.error("Cost calc error:", error); quoteResultEl.textContent = 'Error calculating cost.'; return; }
-
-            // --- Send Data to Backend for Logging Calculated Quote ---
-            if (finalQuote >= 0 && quoteResultEl.textContent.startsWith("Estimated Quote")) {
-                try {
-                    // *** IMPORTANT: Use your DEPLOYED backend URL here ***
-                    const LOGGING_BACKEND_URL_CALCULATE_QUOTE = "https://delivery-quote-backend.onrender.com/log-calculated-quote"; 
-
-                    const contactDetails = { name: document.getElementById('contactName')?.value || '', email: document.getElementById('contactEmail')?.value || '', phone: document.getElementById('contactPhone')?.value || '', company: document.getElementById('contactCompany')?.value || '' };
-                    const packageGroups = document.querySelectorAll('.package-group');
-                    const packagesData = Array.from(packageGroups).map(group => ({
-                        qty: parseInt(group.querySelector('.pkg-qty')?.value || '1'),
-                        desc: group.querySelector('.pkg-desc')?.value || '',
-                        weight: parseFloat(group.querySelector('.pkg-weight')?.value || '0'),
-                        length: parseFloat(group.querySelector('.pkg-length')?.value || '0'),
-                        width: parseFloat(group.querySelector('.pkg-width')?.value || '0'),
-                        height: parseFloat(group.querySelector('.pkg-height')?.value || '0'),
-                        unit: group.querySelector('.pkg-unit')?.value || 'inches',
-                        palletized: group.querySelector('.pkg-palletized')?.checked || false
-                    }));
-                    const serviceDetails = {
-                        vehicleType: document.getElementById('vehicleType')?.value || '',
-                        pickupDate: document.getElementById('pickupDate')?.value || '',
-                        pickupTime: document.getElementById('pickupTime')?.value || '',
-                        urgency: document.getElementById('urgency')?.value || '',
-                        specialNotes: document.getElementById('specialNotes')?.value || '',
-                        insideDelivery: document.getElementById('insideDelivery')?.checked || false,
-                        hazardousBio: document.getElementById('hazardousBio')?.checked || false,
-                        fragileHandling: document.getElementById('fragileHandling')?.checked || false,
-                        extraLaborer: document.getElementById('extraLaborer')?.checked || false
-                    };
-                    const leadData = { contactDetails: contactDetails, stopsData: stopsData, packagesData: packagesData, serviceDetails: serviceDetails, totalMiles: calculatedTotalMiles, calculatedQuote: finalQuote };
-
-                    console.log("Sending calculated quote data to backend:", JSON.stringify(leadData, null, 2));
-
-                    fetch(LOGGING_BACKEND_URL_CALCULATE_QUOTE, {
-                        method: 'POST',
-                        cache: 'no-cache',
-                        headers: { 'Content-Type': 'application/json', },
-                        body: JSON.stringify(leadData),
-                    })
-                    .then(response => {
-                        console.log('Backend calculated quote logging response status:', response.status);
-                        if (!response.ok) {
-                            return response.json().then(errData => {
-                                throw new Error(`Backend logging failed: ${response.status} ${response.statusText} - ${errData.message || 'No details'}`);
-                            }).catch(() => { throw new Error(`Backend logging failed: ${response.status} ${response.statusText}`); });
-                        }
-                        return response.json();
-                    })
-                    .then(result => {
-                        console.log('Backend Calculated Quote Logging Response:', result);
-                        if (result && result.status === 'success') {
-                            const verifiedQuote = Number(result.calculatedQuote);
-                            if (Number.isFinite(verifiedQuote)) {
-                                finalQuote = verifiedQuote;
-                                quoteResultEl.textContent = `Estimated Quote: $${verifiedQuote.toFixed(2)}`;
-                                bookBtn.dataset.quoteAmount = verifiedQuote.toFixed(2);
-                            }
-                            console.log('Calculated quote data successfully verified and logged by backend.');
-                        } else {
-                            console.error('Backend reported an error logging calculated quote:', result ? result.message : 'Unknown error');
-                        }
-                    })
-                    .catch(error => { console.error('Error sending calculated quote data to backend:', error); });
-                } catch (logError) { console.error("Error preparing/sending calculated quote data to backend:", logError); }
+                const quote = result?.quote;
+                if (!quote || !Number.isFinite(Number(quote.total))) {
+                    throw new Error('The pricing server returned an invalid quote.');
+                }
+        
+                lastVerifiedQuote = quote;
+                quoteResultEl.textContent = `Server-Verified Estimated Quote: $${Number(quote.total).toFixed(2)}`;
+                renderQuoteBreakdown(quote);
+                bookBtn.dataset.quoteAmount = Number(quote.total).toFixed(2);
+                bookBtn.style.display = 'inline-block';
+                downloadBtn.style.display = 'inline-block';
+                bookBtn.disabled = false;
+                downloadBtn.disabled = false;
+        
+                const verifiedLeadData = {
+                    ...quoteRequest,
+                    calculatedQuote: Number(quote.total)
+                };
+                void logCalculatedQuote(verifiedLeadData);
+            } catch (error) {
+                console.error('Authoritative quote request failed:', error);
+                resetVerifiedQuote();
+                quoteResultEl.textContent = 'Unable to verify pricing right now.';
+                showFormMessage(`We could not verify this price with the Xpedite Now server. ${error.message} Please try again or call (813) 575-0387.`);
             }
         }
-
 
         // ========== GENERATE SUMMARY TEXT ==========
         function generateSummaryText() {
@@ -2433,6 +2490,21 @@ input[type="number"].pkg-qty {
             }
             summaryText += "\nQuote:\n";
             summaryText += `  ${document.getElementById('quoteResult').textContent || 'Not Calculated'}\n`;
+            if (lastVerifiedQuote?.breakdown) {
+                const breakdown = lastVerifiedQuote.breakdown;
+                summaryText += "\nServer-Verified Price Details:\n";
+                summaryText += `  Mileage: ${formatCurrency(breakdown.mileageCost)}\n`;
+                summaryText += `  Weight: ${formatCurrency(breakdown.weightCost)}\n`;
+                if (breakdown.serviceAdjustment) summaryText += `  Service adjustments: ${formatCurrency(breakdown.serviceAdjustment)}\n`;
+                if (breakdown.loadUnloadFee) summaryText += `  Driver handling: ${formatCurrency(breakdown.loadUnloadFee)}\n`;
+                if (breakdown.stairCost) summaryText += `  Stairs: ${formatCurrency(breakdown.stairCost)}\n`;
+                if (breakdown.flatServiceFees) summaryText += `  Extra labor: ${formatCurrency(breakdown.flatServiceFees)}\n`;
+                if (breakdown.urgencyPremium) summaryText += `  Urgency: ${formatCurrency(breakdown.urgencyPremium)}\n`;
+                if (breakdown.additionalStopFee) summaryText += `  Additional stops: ${formatCurrency(breakdown.additionalStopFee)}\n`;
+                if (breakdown.minimumAdjustment) summaryText += `  Minimum-charge adjustment: ${formatCurrency(breakdown.minimumAdjustment)}\n`;
+                summaryText += `  Verified Total: ${formatCurrency(lastVerifiedQuote.total)}\n`;
+                summaryText += `  Pricing Version: ${lastVerifiedQuote.quoteVersion || 'N/A'}\n`;
+            }
             return summaryText;
         }
 
@@ -2458,95 +2530,45 @@ input[type="number"].pkg-qty {
 
         // ========== STRIPE PAYMENT LINK ==========
         async function handleBookNow() {
-            console.log("Initiating Book Now process...");
+            console.log('Initiating server-verified checkout.');
             if (!validateStep(1) || !validateStep(2) || !validateStep(3) || !validateStep(4)) return;
+        
             const bookBtn = document.getElementById('bookNowBtn');
-            // --- Gather Data ---
-            const stopGroups = document.querySelectorAll('.address-group');
-            const stopsDataForBackend = Array.from(stopGroups).map(group => {
-                const stairFlights = group.querySelector('.floor-count')?.value || '';
-                return {
-                    address: group.querySelector('.stop-addr')?.value.trim() || '',
-                    loadUnload: group.querySelector('.load-unload-select')?.value || '',
-                    stairs: group.querySelector('.stairs-check')?.checked || false,
-                    stairFlights: stairFlights,
-                    floor: stairFlights ? String(Number(stairFlights) + 1) : ''
-                };
-            }).filter(stop => stop.address.length > 0);
-            if (stopsDataForBackend.length < 2) { showFormMessage("Error: Need 2+ stops for payment."); return; }
-
-            const packageGroups = document.querySelectorAll('.package-group');
-            const packagesData = Array.from(packageGroups).map(group => ({
-                qty: parseInt(group.querySelector('.pkg-qty')?.value || '1'),
-                desc: group.querySelector('.pkg-desc')?.value || '',
-                weight: parseFloat(group.querySelector('.pkg-weight')?.value || '0'),
-                length: parseFloat(group.querySelector('.pkg-length')?.value || '0'),
-                width: parseFloat(group.querySelector('.pkg-width')?.value || '0'),
-                height: parseFloat(group.querySelector('.pkg-height')?.value || '0'),
-                unit: group.querySelector('.pkg-unit')?.value || 'inches',
-                palletized: group.querySelector('.pkg-palletized')?.checked || false
-            }));
-            if (packagesData.length === 0) { showFormMessage("Error: Need package details for payment."); return; }
-
-            const serviceDetails = {
-                vehicleType: document.getElementById('vehicleType')?.value || '',
-                pickupDate: document.getElementById('pickupDate')?.value || '',
-                pickupTime: document.getElementById('pickupTime')?.value || '',
-                urgency: document.getElementById('urgency')?.value || '',
-                specialNotes: document.getElementById('specialNotes')?.value || '',
-                insideDelivery: document.getElementById('insideDelivery')?.checked || false,
-                hazardousBio: document.getElementById('hazardousBio')?.checked || false,
-                fragileHandling: document.getElementById('fragileHandling')?.checked || false,
-                extraLaborer: document.getElementById('extraLaborer')?.checked || false
+            const downloadBtn = document.getElementById('downloadSummaryBtn');
+            const quoteAmount = Number(bookBtn.dataset.quoteAmount);
+            if (!lastVerifiedQuote || !Number.isFinite(quoteAmount) ||
+                Math.abs(Number(lastVerifiedQuote.total) - quoteAmount) > 0.01) {
+                showFormMessage('Please calculate a new server-verified quote before proceeding to payment.');
+                return;
+            }
+        
+            const leadData = {
+                ...buildQuoteRequestData(),
+                calculatedQuote: quoteAmount
             };
-            if (!serviceDetails.vehicleType || !serviceDetails.pickupDate || !serviceDetails.pickupTime || !serviceDetails.urgency) { showFormMessage("Error: Missing service details."); return; }
-
-            const customerEmail = document.getElementById('contactEmail')?.value || '';
-            const customerName = document.getElementById('contactName')?.value || '';
-            const customerPhone = document.getElementById('contactPhone')?.value || '';
-            const customerCompany = document.getElementById('contactCompany')?.value || '';
-            const contactDetails = { name: customerName, email: customerEmail, phone: customerPhone, company: customerCompany };
-             if (!customerName) { showFormMessage("Error: Contact name required."); return; } if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) { showFormMessage("Error: Valid contact email required."); return; }
-
-            const totalMiles = calculatedTotalMiles; if (typeof totalMiles !== 'number' || totalMiles < 0) { showFormMessage("Error: Distance not calculated."); return; }
-            const quoteAmount = bookBtn.dataset.quoteAmount; if (!quoteAmount || isNaN(parseFloat(quoteAmount))) { showFormMessage("Error: Quote amount not available."); return; }
-
-            // --- Prepare Fetch Request to /create-checkout-session ---
-            bookBtn.textContent = 'Processing...'; bookBtn.disabled = true; document.getElementById('downloadSummaryBtn').disabled = true;
+            if (!leadData.contactDetails.name ||
+                !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadData.contactDetails.email)) {
+                showFormMessage('A valid contact name and email are required for payment.');
+                return;
+            }
+        
+            bookBtn.textContent = 'Processing…';
+            bookBtn.disabled = true;
+            downloadBtn.disabled = true;
             try {
-                // *** IMPORTANT: Use your DEPLOYED backend URL here ***
-                const CHECKOUT_BACKEND_URL = 'https://delivery-quote-backend.onrender.com/create-checkout-session'; 
-
-                console.log(`Attempting to fetch from: ${CHECKOUT_BACKEND_URL}`);
-                const response = await fetch(CHECKOUT_BACKEND_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contactDetails: contactDetails,
-                        stopsData: stopsDataForBackend,
-                        packagesData: packagesData,
-                        serviceDetails: serviceDetails,
-                        totalMiles: totalMiles,
-                        calculatedQuote: parseFloat(quoteAmount)
-                    }),
-                });
-                 if (!response.ok) {
-                     let errorMsg = `Payment/Logging Error: ${response.status} ${response.statusText}`;
-                     try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
-                     catch(e) { console.warn("Could not parse error response body:", e); }
-                     throw new Error(errorMsg);
-                 }
-                const session = await response.json();
-                if (session.url) {
-                    console.log("Redirecting to Stripe:", session.url);
-                    window.location.href = session.url;
-                } else {
-                    throw new Error("Invalid response from server - no session URL received.")
-                }
+                const session = await fetchJsonWithRetry(`${BACKEND_BASE_URL}/create-checkout-session`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(leadData)
+                }, 1, 45000);
+                if (!session.url) throw new Error('The payment server did not return a checkout link.');
+                window.location.assign(session.url);
             } catch (error) {
                 console.error('Checkout process failed:', error);
-                showFormMessage(`Error setting up payment: ${error.message}.`);
+                showFormMessage(`Payment setup could not be completed. ${error.message} Please try again or call (813) 575-0387.`);
                 bookBtn.textContent = 'Proceed to Payment';
                 bookBtn.disabled = false;
-                document.getElementById('downloadSummaryBtn').disabled = false;
+                downloadBtn.disabled = false;
             }
         }
 
