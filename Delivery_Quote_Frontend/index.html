@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Delivery Quote Form</title>
+  <title>Instant Delivery Quote | Xpedite Now</title>
+  <meta name="description" content="Request a fast, transparent local delivery quote from Xpedite Now." />
+  <meta name="theme-color" content="#173a78" />
 
   <!-- 
     *******************************************************************
@@ -131,12 +133,11 @@
     /* Secondary Button: Blue */
     button.secondary { background-color: #21409A; color: #FFFFFF; margin: 10px 10px 0 0; }
     button.secondary:hover:not(:disabled) { background-color: #1a337a; /* Darker Blue */ }
-    /* Style for Download button */
-    button#downloadSummaryBtn { background-color: #17a2b8; color: #FFFFFF; margin-left: 10px; } /* Teal color */
-    button#downloadSummaryBtn:hover:not(:disabled) { background-color: #138496; } /* Darker Teal */
-    /* Style for Book Now Button: Green */
-    button#bookNowBtn { background-color: #28a745; margin-left: 10px; } /* Green */
-    button#bookNowBtn:hover:not(:disabled) { background-color: #218838; } /* Darker Green */
+    /* Quote action colors are unified in the Phase 2 design system. */
+    button#downloadSummaryBtn { background-color: #FFFFFF; color: #21409A; }
+    button#downloadSummaryBtn:hover:not(:disabled) { background-color: #edf3ff; }
+    button#bookNowBtn { background-color: #f15829; color: #FFFFFF; }
+    button#bookNowBtn:hover:not(:disabled) { background-color: #d94d20; }
 
     .address-group, .package-group {
       margin-bottom: 20px;
@@ -252,12 +253,669 @@
       background: #21409A;
       color: #fff;
     }
+
+    /* Phase 2: modern branded and responsive visual system */
+    :root {
+      --xn-blue-900: #102a5c;
+      --xn-blue-800: #173a78;
+      --xn-blue-700: #21409a;
+      --xn-blue-100: #eaf1ff;
+      --xn-orange-600: #e95627;
+      --xn-orange-500: #f15829;
+      --xn-orange-100: #fff0ea;
+      --xn-ink: #172033;
+      --xn-muted: #61708a;
+      --xn-border: #dbe3ef;
+      --xn-surface: #ffffff;
+      --xn-background: #f3f6fb;
+      --xn-danger: #c93434;
+      --xn-shadow: 0 18px 45px rgba(18, 42, 89, 0.11);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--xn-background);
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: clamp(12px, 3vw, 32px);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(33, 64, 154, 0.09), transparent 30rem),
+        linear-gradient(180deg, #f8faff 0%, var(--xn-background) 100%);
+      color: var(--xn-ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    .page-shell {
+      width: min(100%, 980px);
+      margin: 0 auto;
+    }
+
+    .brand-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 18px 22px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--xn-blue-900), var(--xn-blue-700));
+      box-shadow: 0 14px 34px rgba(16, 42, 92, 0.2);
+      color: #fff;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      flex: 0 0 50px;
+      width: 50px;
+      height: 50px;
+      place-items: center;
+      border: 2px solid rgba(255, 255, 255, 0.72);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+
+    .brand-copy {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+    }
+
+    .brand-copy strong {
+      font-size: 1.05rem;
+      letter-spacing: 0.08em;
+    }
+
+    .brand-copy span,
+    .support-link span {
+      color: rgba(255, 255, 255, 0.76);
+      font-size: 0.82rem;
+    }
+
+    .support-link {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      color: #fff;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .support-link strong {
+      font-size: 0.98rem;
+    }
+
+    .support-link:hover strong {
+      color: #ffd6c7;
+    }
+
+    .quote-app {
+      width: 100%;
+    }
+
+    .quote-intro {
+      padding: clamp(30px, 6vw, 56px) clamp(4px, 2vw, 18px) 26px;
+      text-align: center;
+    }
+
+    .quote-intro .eyebrow {
+      margin: 0 0 8px;
+      color: var(--xn-orange-600);
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+    }
+
+    .quote-intro h1 {
+      margin: 0;
+      color: var(--xn-blue-900);
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      line-height: 1.08;
+      letter-spacing: -0.035em;
+    }
+
+    .quote-intro > p:last-child {
+      max-width: 620px;
+      margin: 14px auto 0;
+      color: var(--xn-muted);
+      font-size: clamp(1rem, 2vw, 1.1rem);
+    }
+
+    .quote-progress {
+      margin: 0 0 20px;
+      padding: 18px clamp(12px, 3vw, 24px);
+      border: 1px solid var(--xn-border);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 9px 24px rgba(18, 42, 89, 0.07);
+      backdrop-filter: blur(8px);
+    }
+
+    .quote-progress #stepStatus {
+      margin-bottom: 14px;
+      color: var(--xn-blue-800);
+      font-size: 0.92rem;
+    }
+
+    .quote-progress ol {
+      gap: clamp(4px, 2vw, 16px);
+    }
+
+    .quote-progress li {
+      position: relative;
+      gap: 6px;
+      color: #7a879d;
+      font-size: 0.78rem;
+    }
+
+    .quote-progress li strong {
+      font-weight: 700;
+    }
+
+    .quote-progress li span {
+      width: 32px;
+      height: 32px;
+      border-color: #bdc8d9;
+      box-shadow: 0 0 0 4px #fff;
+    }
+
+    .quote-progress li.active span {
+      border-color: var(--xn-orange-500);
+      background: var(--xn-orange-500);
+      box-shadow: 0 0 0 5px var(--xn-orange-100);
+    }
+
+    .quote-progress li.completed span {
+      border-color: var(--xn-blue-700);
+      background: var(--xn-blue-700);
+      box-shadow: 0 0 0 4px var(--xn-blue-100);
+    }
+
+    .form-step {
+      width: 100%;
+      margin-bottom: 28px;
+      padding: clamp(20px, 5vw, 40px);
+      border: 1px solid rgba(219, 227, 239, 0.92);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: var(--xn-shadow);
+      animation: xn-step-in 220ms ease-out;
+    }
+
+    .form-step > h3 {
+      margin: 0 0 8px;
+      color: var(--xn-blue-900);
+      font-size: clamp(1.45rem, 3vw, 1.85rem);
+      letter-spacing: -0.02em;
+    }
+
+    .form-step > h3 + p {
+      margin: 0 0 26px;
+      color: var(--xn-muted);
+    }
+
+    fieldset {
+      margin: 24px 0;
+      padding: 22px;
+      border: 1px solid var(--xn-border);
+      border-radius: 15px;
+      background: #f9fbff;
+    }
+
+    legend {
+      padding: 0 8px;
+      color: var(--xn-blue-800);
+      font-size: 1rem;
+    }
+
+    .contact-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px 18px;
+    }
+
+    .field-group {
+      min-width: 0;
+    }
+
+    label {
+      margin-top: 14px;
+      margin-bottom: 6px;
+      color: #28354b;
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      max-width: none;
+      min-height: 48px;
+      margin: 0 0 12px;
+      padding: 12px 14px;
+      border: 1px solid #c8d2e1;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--xn-ink);
+      box-shadow: 0 1px 2px rgba(16, 42, 92, 0.03);
+      transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+    }
+
+    input:hover,
+    select:hover,
+    textarea:hover {
+      border-color: #9babc2;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--xn-blue-700);
+      box-shadow: 0 0 0 4px rgba(33, 64, 154, 0.12);
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      min-height: 20px;
+      margin: 0 7px 0 0;
+      accent-color: var(--xn-blue-700);
+    }
+
+    input[type="file"] {
+      min-height: auto;
+      padding: 10px;
+      border: 1px dashed #aebbd0;
+      border-radius: 10px;
+      background: #f7f9fc;
+    }
+
+    .inline-label {
+      margin: 0;
+      vertical-align: middle;
+    }
+
+    .inline-group {
+      gap: 10px;
+    }
+
+    input[type="number"].pkg-qty {
+      min-height: 44px;
+    }
+
+    .dimension-input {
+      width: 92px !important;
+    }
+
+    #addressContainer {
+      counter-reset: route-stop;
+    }
+
+    #packageContainer {
+      counter-reset: package-item;
+    }
+
+    .address-group,
+    .package-group {
+      position: relative;
+      margin-bottom: 18px;
+      padding: 58px 20px 20px;
+      border: 1px solid var(--xn-border);
+      border-radius: 15px;
+      background: linear-gradient(180deg, #fbfcff 0%, #fff 100%);
+      box-shadow: 0 6px 18px rgba(18, 42, 89, 0.05);
+    }
+
+    .address-group {
+      counter-increment: route-stop;
+    }
+
+    .package-group {
+      counter-increment: package-item;
+    }
+
+    .address-group::before,
+    .package-group::before {
+      position: absolute;
+      top: 17px;
+      left: 20px;
+      color: var(--xn-blue-800);
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .address-group::before {
+      content: "Stop " counter(route-stop);
+    }
+
+    .address-group:first-child::before {
+      content: "Pickup";
+    }
+
+    .address-group:nth-child(2)::before {
+      content: "Delivery";
+    }
+
+    .package-group::before {
+      content: "Package " counter(package-item);
+    }
+
+    .remove-button {
+      top: 13px;
+      right: 14px;
+      min-height: 34px;
+      margin: 0;
+      padding: 6px 11px;
+      border: 1px solid #f0b5b5;
+      border-radius: 8px;
+      background: #fff4f4;
+      color: var(--xn-danger);
+      font-size: 0.78rem;
+      font-weight: 750;
+    }
+
+    .remove-button:hover {
+      background: #ffe5e5;
+      color: #a51f1f;
+    }
+
+    button {
+      min-height: 48px;
+      margin: 0;
+      padding: 12px 19px;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      font-weight: 750;
+      line-height: 1.2;
+      box-shadow: none;
+      transition: transform 120ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    button.primary,
+    button#bookNowBtn {
+      margin: 0;
+      border-color: var(--xn-orange-500);
+      background: var(--xn-orange-500);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(241, 88, 41, 0.22);
+    }
+
+    button.primary:hover:not(:disabled),
+    button#bookNowBtn:hover:not(:disabled) {
+      background: var(--xn-orange-600);
+      border-color: var(--xn-orange-600);
+      box-shadow: 0 10px 22px rgba(233, 86, 39, 0.28);
+    }
+
+    button.secondary,
+    button#downloadSummaryBtn {
+      margin: 0;
+      border-color: #b7c5db;
+      background: #fff;
+      color: var(--xn-blue-700);
+    }
+
+    button.secondary:hover:not(:disabled),
+    button#downloadSummaryBtn:hover:not(:disabled) {
+      border-color: var(--xn-blue-700);
+      background: var(--xn-blue-100);
+      color: var(--xn-blue-900);
+    }
+
+    button:focus-visible,
+    a:focus-visible {
+      outline: 3px solid rgba(241, 88, 41, 0.45);
+      outline-offset: 3px;
+    }
+
+    button:disabled {
+      border-color: #d1d7e0;
+      background: #d9dee6;
+      color: #697487;
+      box-shadow: none;
+    }
+
+    .add-item-button {
+      margin-top: 2px;
+      border-style: dashed;
+    }
+
+    .step-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 28px;
+      padding-top: 22px;
+      border-top: 1px solid #e6ebf3;
+    }
+
+    .step-actions > .secondary:first-child {
+      margin-right: auto;
+    }
+
+    .summary-section {
+      margin: 22px 0;
+      padding: 22px;
+      border: 1px solid var(--xn-border);
+      border-radius: 14px;
+      background: #f8faff;
+    }
+
+    .summary-section h4 {
+      margin-top: 20px;
+      color: var(--xn-blue-800);
+    }
+
+    .summary-section h4:first-child {
+      margin-top: 0;
+    }
+
+    #quoteResult {
+      margin-top: 20px;
+      padding: 22px;
+      border: 1px solid #b9cff7;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #edf4ff, #f7faff);
+      color: var(--xn-blue-900);
+      font-size: clamp(1.15rem, 3vw, 1.45rem);
+    }
+
+    #weightWarning {
+      border-radius: 12px;
+    }
+
+    @keyframes xn-step-in {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 12px;
+      }
+
+      .brand-header {
+        align-items: flex-start;
+        padding: 15px;
+        border-radius: 16px;
+      }
+
+      .brand-mark {
+        flex-basis: 44px;
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+      }
+
+      .brand-copy span {
+        display: none;
+      }
+
+      .support-link span {
+        display: none;
+      }
+
+      .support-link strong {
+        font-size: 0.86rem;
+      }
+
+      .quote-intro {
+        padding-top: 34px;
+      }
+
+      .quote-progress li {
+        font-size: 0.7rem;
+      }
+
+      .quote-progress li span {
+        width: 29px;
+        height: 29px;
+      }
+
+      .form-step {
+        padding: 22px 16px;
+        border-radius: 16px;
+      }
+
+      fieldset,
+      .address-group,
+      .package-group,
+      .summary-section {
+        padding-right: 15px;
+        padding-left: 15px;
+      }
+
+      .contact-grid {
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+
+      .step-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .step-actions button,
+      .add-item-button {
+        width: 100%;
+      }
+
+      .step-actions > .secondary:first-child {
+        margin-right: 0;
+      }
+
+      .inline-group {
+        align-items: stretch;
+      }
+
+      .dimension-input {
+        width: auto !important;
+        min-width: 64px;
+        flex: 1 1 70px;
+      }
+    }
+
+    @media (max-width: 440px) {
+      .brand-header {
+        gap: 10px;
+      }
+
+      .brand-copy strong {
+        font-size: 0.9rem;
+      }
+
+      .support-link strong {
+        font-size: 0.76rem;
+      }
+
+      .quote-progress {
+        padding-right: 8px;
+        padding-left: 8px;
+      }
+
+      .quote-progress li strong {
+        font-size: 0.64rem;
+      }
+
+      .quote-progress li span {
+        width: 27px;
+        height: 27px;
+      }
+
+      .form-step {
+        padding-right: 13px;
+        padding-left: 13px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
     /* --- End Styles --- */
   </style>
 </head>
 <body>
+  <div class="page-shell">
+    <header class="brand-header">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">XN</div>
+        <div class="brand-copy">
+          <strong>XPEDITE NOW</strong>
+          <span>Professional delivery services</span>
+        </div>
+      </div>
+      <a class="support-link" href="tel:+18135750387">
+        <span>Questions?</span>
+        <strong>(813) 575-0387</strong>
+      </a>
+    </header>
 
-    <h2>Delivery Quote Form</h2>
+    <main id="quoteApp" class="quote-app">
+      <section class="quote-intro" aria-labelledby="quoteTitle">
+        <p class="eyebrow">FAST &bull; CLEAR &bull; LOCAL</p>
+        <h1 id="quoteTitle">Get your delivery quote</h1>
+        <p>Tell us about the route and shipment. We&rsquo;ll calculate the delivery price before you book.</p>
+      </section>
 
     <nav id="quoteProgress" class="quote-progress" aria-label="Quote progress">
       <p id="stepStatus">Step 1 of 4: Route</p>
@@ -314,8 +972,8 @@
             </div>
         </div>
       </div>
-      <button type="button" class="secondary" onclick="addAddress()">Add Another Stop</button>
-      <div>
+      <button type="button" class="secondary add-item-button" onclick="addAddress()">+ Add Another Stop</button>
+      <div class="step-actions">
         <button type="button" class="primary" onclick="goToNextStep(1)">Continue to Shipment</button>
       </div>
     </div>
@@ -351,8 +1009,8 @@
           <input type="file" id="pkgUpload1" class="pkg-upload" accept="image/*,application/pdf,.doc,.docx,.txt">
         </div>
       </div>
-      <button type="button" class="secondary" onclick="addPackage()">Add Another Package</button>
-      <div>
+      <button type="button" class="secondary add-item-button" onclick="addPackage()">+ Add Another Package</button>
+      <div class="step-actions">
         <button type="button" class="secondary" onclick="goToPrevStep(2)">Back to Route</button>
         <button type="button" class="primary" onclick="goToNextStep(2)">Continue to Service</button>
       </div>
@@ -400,7 +1058,7 @@
       <div>
         <input type="checkbox" id="extraLaborer" /> <label for="extraLaborer" class="inline-label">Extra Laborer</label>
       </div>
-      <div>
+      <div class="step-actions">
         <button type="button" class="secondary" onclick="goToPrevStep(3)">Back to Shipment</button>
         <button type="button" class="primary" onclick="goToNextStep(3)">Continue to Review</button>
       </div>
@@ -409,26 +1067,40 @@
     <div class="form-step" id="step-4">
       <h3>Step 4: Contact, Review &amp; Quote</h3>
       <p>Enter your contact information, review the delivery details, and calculate the final estimate.</p>
-    <fieldset style="margin-bottom: 25px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #fff;">
+      <fieldset class="contact-card">
         <legend>Contact Information</legend>
-        <label for="contactName">Contact Name:</label>
-        <input type="text" id="contactName" name="contactName" required />
-        <label for="contactEmail">Email:</label>
-        <input type="email" id="contactEmail" name="contactEmail" required />
-        <label for="contactPhone" class="optional">Phone:</label>
-        <input type="tel" id="contactPhone" name="contactPhone" placeholder="e.g., 123-456-7890" />
-        <label for="contactCompany" class="optional">Company Name:</label>
-        <input type="text" id="contactCompany" name="contactCompany" />
-    </fieldset>
+        <div class="contact-grid">
+          <div class="field-group">
+            <label for="contactName">Contact Name:</label>
+            <input type="text" id="contactName" name="contactName" required />
+          </div>
+          <div class="field-group">
+            <label for="contactEmail">Email:</label>
+            <input type="email" id="contactEmail" name="contactEmail" required />
+          </div>
+          <div class="field-group">
+            <label for="contactPhone" class="optional">Phone:</label>
+            <input type="tel" id="contactPhone" name="contactPhone" placeholder="e.g., 123-456-7890" />
+          </div>
+          <div class="field-group">
+            <label for="contactCompany" class="optional">Company Name:</label>
+            <input type="text" id="contactCompany" name="contactCompany" />
+          </div>
+        </div>
+      </fieldset>
       <div class="summary-section" id="summaryContainer">
           </div>
       <div id="weightWarning"></div>
       <h3 id="quoteResult"></h3>
-      <button type="button" class="secondary" onclick="goToPrevStep(4)">Back to Service</button>
-      <button type="button" class="primary" onclick="calculateQuote()">Calculate Quote</button>
-      <button type="button" class="secondary" id="downloadSummaryBtn" style="display:none;" onclick="downloadSummary()">Download Summary</button>
-      <button type="button" class="primary" id="bookNowBtn" style="display:none;" onclick="handleBookNow()">Proceed to Payment</button>
+      <div class="step-actions quote-actions">
+        <button type="button" class="secondary" onclick="goToPrevStep(4)">Back to Service</button>
+        <button type="button" class="primary" onclick="calculateQuote()">Calculate Quote</button>
+        <button type="button" class="secondary" id="downloadSummaryBtn" style="display:none;" onclick="downloadSummary()">Download Summary</button>
+        <button type="button" class="primary" id="bookNowBtn" style="display:none;" onclick="handleBookNow()">Proceed to Payment</button>
+      </div>
     </div>
+    </main>
+  </div>
 
     <script>
         // --- Global Variables ---
@@ -507,7 +1179,8 @@
               currentStep = stepNumber;
               updateProgress(stepNumber);
               if (shouldScroll) {
-                  document.getElementById('quoteProgress')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                  document.getElementById('quoteProgress')?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'start' });
               }
           }
         }
