@@ -35,7 +35,7 @@ const QUOTE_RULES = Object.freeze({
   }),
   additionalStopFee: 3.50,
   extraLaborerFee: 35,
-  stairFeePerFloor: 5,
+  stairFeePerFlight: 5,
 });
 
 function parseFiniteNumber(value, fieldName) {
@@ -127,12 +127,20 @@ function calculateAuthoritativeQuote(leadData) {
     }
 
     if (isSelected(stop?.stairs)) {
-      const floor = parseFiniteNumber(stop?.floor, 'Floor number');
-      if (!Number.isInteger(floor) || floor < 1) {
-        throw new Error('Floor number must be a positive whole number when stairs are selected.');
-      }
-      if (floor > 1) {
-        totalStairCost += (floor - 1) * QUOTE_RULES.stairFeePerFloor;
+      const hasStairFlights = stop?.stairFlights !== undefined && stop?.stairFlights !== null && stop?.stairFlights !== '';
+      if (hasStairFlights) {
+        const stairFlights = parseFiniteNumber(stop.stairFlights, 'Stair flights');
+        if (!Number.isInteger(stairFlights) || stairFlights < 1) {
+          throw new Error('Stair flights must be a positive whole number when stairs are selected.');
+        }
+        totalStairCost += stairFlights * QUOTE_RULES.stairFeePerFlight;
+      } else {
+        // Legacy clients submit a destination floor; floor 2 equals one stair flight.
+        const legacyFloor = parseFiniteNumber(stop?.floor, 'Floor number');
+        if (!Number.isInteger(legacyFloor) || legacyFloor < 1) {
+          throw new Error('Floor number must be a positive whole number when stairs are selected.');
+        }
+        totalStairCost += Math.max(0, legacyFloor - 1) * QUOTE_RULES.stairFeePerFlight;
       }
     }
   }
@@ -284,8 +292,13 @@ async function logLeadDataToDB(leadData, logType = "CalculatedQuote") {
       if (loadUnload === 'driver') loadUnload = 'Driver'; 
       else if (loadUnload === 'customer') loadUnload = 'Customer'; 
       else if (loadUnload === 'driver_assist') loadUnload = 'Driver Assist';
-      let stairsInfoString = 'No'; 
-      if (stop.stairs) { stairsInfoString = `Yes, Fl: ${stop.floor || 'N/A'}`; }
+      let stairsInfoString = 'No';
+      if (stop.stairs) {
+        const stairFlights = stop.stairFlights !== undefined && stop.stairFlights !== null && stop.stairFlights !== ''
+          ? stop.stairFlights
+          : Math.max(0, Number(stop.floor || 1) - 1);
+        stairsInfoString = `Yes, Flights: ${stairFlights}`;
+      }
       return `${address}|${loadUnload}|${stairsInfoString}`;
     }).join(';');
   }
