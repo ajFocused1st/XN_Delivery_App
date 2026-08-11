@@ -8,6 +8,8 @@ const { Pool } = require('pg'); // PostgreSQL client for Node.js
 
 const app = express();
 
+const QUOTE_VERSION = '2026-08-11-v1';
+
 const QUOTE_RULES = Object.freeze({
   vehicleRates: Object.freeze({
     car: 1.50,
@@ -336,6 +338,7 @@ function calculateAuthoritativeQuote(leadData) {
   const totalCost = subtotalBeforeMinimum + minimumAdjustment;
 
   return {
+    quoteVersion: QUOTE_VERSION,
     total: Number(Math.max(0, totalCost).toFixed(2)),
     totalMiles: Number(totalMiles.toFixed(2)),
     totalWeight: Number(totalWeight.toFixed(2)),
@@ -345,6 +348,7 @@ function calculateAuthoritativeQuote(leadData) {
       mileageCost: Number(mileageCost.toFixed(2)),
       weightCost: Number(weightCost.toFixed(2)),
       servicesMultiplier: Number(servicesMultiplier.toFixed(2)),
+      serviceAdjustment: Number((costAfterMultiplier - baseCost).toFixed(2)),
       loadUnloadFee: Number(totalLoadUnloadFee.toFixed(2)),
       stairCost: Number(totalStairCost.toFixed(2)),
       flatServiceFees: Number(flatServiceFees.toFixed(2)),
@@ -358,13 +362,36 @@ function calculateAuthoritativeQuote(leadData) {
 
 
 // --- Middleware ---
+function normalizeOrigin(value) {
+  if (!value) return null;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return String(value).replace(/\/$/, '');
+  }
+}
+
+const allowedOrigins = new Set([
+  normalizeOrigin(process.env.YOUR_WEBSITE_URL),
+  normalizeOrigin(process.env.FRONTEND_URL),
+  'https://delivery-quote-frontend.onrender.com',
+  'https://xpeditenow.com',
+  'https://www.xpeditenow.com',
+  'http://localhost:3000',
+  'http://127.0.0.1:5500',
+].filter(Boolean));
+
 app.use(cors({
-  origin: process.env.YOUR_WEBSITE_URL || '*', // Allow configured origin or wildcard
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
-  allowedHeaders: "Content-Type, Authorization, X-Requested-With",
-  optionsSuccessStatus: 204 // Standard for successful preflight
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+    console.warn('Blocked CORS origin:', origin);
+    return callback(new Error('Origin is not allowed by CORS.'));
+  },
+  methods: 'GET,HEAD,POST,OPTIONS',
+  allowedHeaders: 'Content-Type, Authorization, X-Requested-With',
+  optionsSuccessStatus: 204,
 }));
-console.log("Applied cors() middleware. Allowed origin will be:", process.env.YOUR_WEBSITE_URL || '*');
+console.log('Applied CORS middleware. Allowed origins:', Array.from(allowedOrigins));
 app.use(express.json()); // To parse JSON request bodies
 
 // --- PostgreSQL Configuration ---
@@ -512,6 +539,25 @@ async function logLeadDataToDB(leadData, logType = "CalculatedQuote") {
   }
 }
 
+// --- Authoritative quote endpoint (no logging or payment side effects) ---
+app.post('/calculate-quote', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const quote = calculateAuthoritativeQuote(req.body);
+    return res.status(200).json({
+      status: 'success',
+      quote,
+    });
+  } catch (error) {
+    console.warn('Invalid quote details received for calculation:', error.message);
+    return res.status(422).json({
+      status: 'error',
+      message: error.message,
+      quoteVersion: QUOTE_VERSION,
+    });
+  }
+});
+
 // --- API Endpoint for Logging Calculated Quotes ---
 app.post('/log-calculated-quote', async (req, res) => {
   console.log(`POST /log-calculated-quote received at ${new Date().toISOString()}`);
@@ -549,6 +595,7 @@ app.post('/log-calculated-quote', async (req, res) => {
       status: 'success',
       message: 'Quote data verified and logged.',
       calculatedQuote: authoritativeQuote.total,
+      quoteVersion: authoritativeQuote.quoteVersion,
     });
   } catch (error) {
     return res.status(500).json({
@@ -639,6 +686,7 @@ app.post('/create-checkout-session', async (req, res) => {
     return res.json({
       url: session.url,
       calculatedQuote: authoritativeQuote.total,
+      quoteVersion: authoritativeQuote.quoteVersion,
     });
   } catch (stripeError) {
     console.error('Stripe API Error:', stripeError);
