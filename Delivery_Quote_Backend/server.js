@@ -52,6 +52,15 @@ const QUOTE_RULES = Object.freeze({
   additionalStopFee: 3.50,
   extraLaborerFee: 35,
   stairFeePerFlight: 5,
+  handlingRules: Object.freeze({
+    soloDriverMaxItemWeight: 50,
+    assistedHandlingMaxItemWeight: 150,
+    stairTeamWeightThreshold: 50,
+    stairTeamLengthThreshold: 72,
+    stairCustomReviewWeight: 150,
+    stairCustomReviewLength: 96,
+    hazardousNotesMinLength: 10,
+  }),
 });
 
 function parseFiniteNumber(value, fieldName) {
@@ -109,8 +118,8 @@ function buildShipmentProfile(packagesData) {
 
     totalWeight += quantity * weightPerItem;
     totalVolumeCubicFeet += quantity * dimensionsInches.reduce((product, dimension) => product * dimension, 1) / 1728;
-    isPalletized = isPalletized || /\b(pallet|pallets|skid|skids)\b/i.test(String(packageData?.desc || ''));
-    items.push({ packageNumber, dimensionsInches });
+    isPalletized = isPalletized || isSelected(packageData?.palletized) || /\b(pallet|pallets|skid|skids)\b/i.test(String(packageData?.desc || ''));
+    items.push({ packageNumber, dimensionsInches, weightPerItem });
   });
 
   if (totalWeight > QUOTE_RULES.maxTotalWeight) {
@@ -122,6 +131,8 @@ function buildShipmentProfile(packagesData) {
     totalVolumeCubicFeet,
     isPalletized,
     items,
+    maxItemWeight: Math.max(...items.map(item => item.weightPerItem)),
+    maxItemLongestDimension: Math.max(...items.map(item => item.dimensionsInches[2])),
   };
 }
 
@@ -152,6 +163,57 @@ function getVehicleRecommendation(shipmentProfile) {
   return QUOTE_RULES.vehicleCapacityOrder.find(vehicleType =>
     evaluateVehicleFit(vehicleType, shipmentProfile).fits
   ) || null;
+}
+
+function validateOperationalConsistency(stopsData, serviceDetails, shipmentProfile) {
+  const rules = QUOTE_RULES.handlingRules;
+  const extraLaborer = isSelected(serviceDetails.extraLaborer);
+  const insideDelivery = isSelected(serviceDetails.insideDelivery);
+
+  for (const stop of stopsData) {
+    const responsibility = stop?.loadUnload;
+    const stairs = isSelected(stop?.stairs);
+    const xpediteHandlesFreight =
+      responsibility === 'driver' ||
+      responsibility === 'driver_assist' ||
+      insideDelivery;
+
+    if (shipmentProfile.isPalletized && stairs) {
+      throw new Error('Palletized freight with stairs requires a custom dispatch review and cannot be booked through the instant quote.');
+    }
+    if (shipmentProfile.isPalletized && responsibility === 'driver') {
+      throw new Error('Driver-only loading or unloading is not available for palletized freight. Select Customer or Customer with Driver Assist.');
+    }
+    if (xpediteHandlesFreight && !shipmentProfile.isPalletized &&
+        shipmentProfile.maxItemWeight > rules.assistedHandlingMaxItemWeight) {
+      throw new Error(`Items over ${rules.assistedHandlingMaxItemWeight} lbs require a custom equipment review when Xpedite Now handles the freight.`);
+    }
+    if (responsibility === 'driver' &&
+        shipmentProfile.maxItemWeight > rules.soloDriverMaxItemWeight &&
+        !extraLaborer) {
+      throw new Error(`Driver-only handling of items over ${rules.soloDriverMaxItemWeight} lbs requires an Extra Laborer, Customer assistance, or custom dispatch review.`);
+    }
+    if (stairs && xpediteHandlesFreight && !shipmentProfile.isPalletized) {
+      if (shipmentProfile.maxItemWeight > rules.stairCustomReviewWeight ||
+          shipmentProfile.maxItemLongestDimension > rules.stairCustomReviewLength) {
+        throw new Error(`Large stair carries over ${rules.stairCustomReviewWeight} lbs or ${rules.stairCustomReviewLength} inches require a custom dispatch review.`);
+      }
+      if ((shipmentProfile.maxItemWeight > rules.stairTeamWeightThreshold ||
+           shipmentProfile.maxItemLongestDimension > rules.stairTeamLengthThreshold) &&
+          !extraLaborer) {
+        throw new Error('The entered stair carry requires an Extra Laborer based on the heaviest or longest item.');
+      }
+    }
+  }
+
+  const hazardousSelected =
+    isSelected(serviceDetails.hazardousBio) ||
+    isSelected(serviceDetails.hazardous) ||
+    isSelected(serviceDetails.bioHazardous);
+  const specialNotes = String(serviceDetails.specialNotes || '').trim();
+  if (hazardousSelected && specialNotes.length < rules.hazardousNotesMinLength) {
+    throw new Error(`Hazardous or bio-hazardous shipments require at least ${rules.hazardousNotesMinLength} characters in Special Notes describing the material and handling needs.`);
+  }
 }
 
 function getDriverHandlingFee(totalWeight) {
@@ -202,6 +264,8 @@ function calculateAuthoritativeQuote(leadData) {
     throw new Error(`${selectedLabel} is not compatible with this shipment: ${vehicleFit.reasons.join('; ')}.${recommendationText}`);
   }
 
+  validateOperationalConsistency(stopsData, serviceDetails, shipmentProfile);
+
   let totalLoadUnloadFee = 0;
   let totalStairCost = 0;
   const driverHandlingFee = getDriverHandlingFee(totalWeight);
@@ -211,13 +275,6 @@ function calculateAuthoritativeQuote(leadData) {
     const responsibility = stop?.loadUnload;
     if (!allowedResponsibilities.has(responsibility)) {
       throw new Error('Each stop must specify a valid loading responsibility.');
-    }
-
-    if (shipmentProfile.isPalletized && responsibility === 'driver') {
-      throw new Error('Driver-only loading or unloading is not available for palletized freight. Select Customer or Customer with Driver Assist.');
-    }
-    if (shipmentProfile.isPalletized && isSelected(stop?.stairs)) {
-      throw new Error('Palletized freight with stairs requires a custom dispatch review and cannot be booked through the instant quote.');
     }
 
     if (responsibility === 'driver') {
@@ -354,6 +411,7 @@ async function ensureLeadsTableExists() {
       pickup_date VARCHAR(50),
       pickup_time VARCHAR(50),
       urgency VARCHAR(100),
+      special_notes TEXT,
       inside_delivery BOOLEAN,
       hazardous BOOLEAN,
       bio_hazardous BOOLEAN,
@@ -364,7 +422,8 @@ async function ensureLeadsTableExists() {
   `;
   try {
     await pool.query(createTableQuery);
-    console.log("Ensured 'leads' table exists in PostgreSQL database.");
+    await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS special_notes TEXT;');
+    console.log("Ensured 'leads' table and special_notes column exist in PostgreSQL database.");
   } catch (err) {
     console.error("Error ensuring 'leads' table exists in PostgreSQL:", err);
     // This is a critical error for the application's logging functionality.
@@ -409,7 +468,8 @@ async function logLeadDataToDB(leadData, logType = "CalculatedQuote") {
   if (leadData.packagesData && leadData.packagesData.length > 0) {
     packagesStr = leadData.packagesData.map(p => {
       const cleanDesc = (p.desc || 'N/A').replace(/\|/g, '/').replace(/;/g, ',');
-      return `Qty:${p.qty || 'N/A'}, Desc:${cleanDesc}, Wt:${p.weight || 'N/A'}lbs, Dim:${p.length || 'N/A'}x${p.width || 'N/A'}x${p.height || 'N/A'} ${p.unit || 'N/A'}`;
+      const palletized = isSelected(p.palletized) || /\b(pallet|pallets|skid|skids)\b/i.test(String(p.desc || ''));
+      return `Qty:${p.qty || 'N/A'}, Desc:${cleanDesc}, Wt:${p.weight || 'N/A'}lbs, Dim:${p.length || 'N/A'}x${p.width || 'N/A'}x${p.height || 'N/A'} ${p.unit || 'N/A'}, Palletized:${palletized ? 'Yes' : 'No'}`;
     }).join('; ');
   }
 
@@ -417,9 +477,10 @@ async function logLeadDataToDB(leadData, logType = "CalculatedQuote") {
   const pickupDate = leadData.serviceDetails?.pickupDate || null;
   const pickupTime = leadData.serviceDetails?.pickupTime || null;
   const urgency = leadData.serviceDetails?.urgency || null;
+  const specialNotes = leadData.serviceDetails?.specialNotes || null;
   const insideDelivery = leadData.serviceDetails?.insideDelivery || false;
-  const hazardous = leadData.serviceDetails?.hazardous || false;
-  const bioHazardous = leadData.serviceDetails?.bioHazardous || false;
+  const hazardous = leadData.serviceDetails?.hazardousBio || leadData.serviceDetails?.hazardous || false;
+  const bioHazardous = leadData.serviceDetails?.hazardousBio || leadData.serviceDetails?.bioHazardous || false;
   const extraLaborer = leadData.serviceDetails?.extraLaborer || false;
   
   // Ensure numerical values are correctly parsed or null
@@ -430,15 +491,15 @@ async function logLeadDataToDB(leadData, logType = "CalculatedQuote") {
     INSERT INTO leads (
       log_type, contact_name, contact_email, contact_phone, contact_company,
       all_stops_details, package_details, vehicle_type, pickup_date, pickup_time,
-      urgency, inside_delivery, hazardous, bio_hazardous, extra_laborer,
+      urgency, special_notes, inside_delivery, hazardous, bio_hazardous, extra_laborer,
       total_miles, calculated_quote
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
     RETURNING id;
   `;
   const values = [
     logType, contactName, contactEmail, contactPhone, contactCompany,
     allStopsString, packagesStr, vehicleType, pickupDate, pickupTime,
-    urgency, insideDelivery, hazardous, bioHazardous, extraLaborer,
+    urgency, specialNotes, insideDelivery, hazardous, bioHazardous, extraLaborer,
     totalMiles, calculatedQuoteValue
   ];
 
