@@ -835,15 +835,16 @@
                 const vehicleSelect = document.getElementById('vehicleType');
                 const vehicleText = vehicleSelect.options[vehicleSelect.selectedIndex].text;
                 let mileageRate = 0;
+                let minimumCharge = 0;
                 let maxWeight = 0;
 
                 switch (vehicleType) {
-                    case 'car': mileageRate = 0.80; maxWeight = 100; break;
-                    case 'suv': mileageRate = 1.10; maxWeight = 300; break;
-                    case 'pickup_truck': mileageRate = 1.25; maxWeight = 1000; break;
-                    case 'cargo_van': mileageRate = 1.50; maxWeight = 2500; break;
-                    case 'cargo_van_high_roof': mileageRate = 1.85; maxWeight = 3500; break;
-                    case 'box_truck': mileageRate = 2.24; maxWeight = 4000; break;
+                    case 'car': mileageRate = 1.50; minimumCharge = 30; maxWeight = 100; break;
+                    case 'suv': mileageRate = 1.75; minimumCharge = 40; maxWeight = 300; break;
+                    case 'pickup_truck': mileageRate = 2.00; minimumCharge = 50; maxWeight = 1000; break;
+                    case 'cargo_van': mileageRate = 2.25; minimumCharge = 75; maxWeight = 2500; break;
+                    case 'cargo_van_high_roof': mileageRate = 2.75; minimumCharge = 95; maxWeight = 3500; break;
+                    case 'box_truck': mileageRate = 3.50; minimumCharge = 150; maxWeight = 4000; break;
                     default:
                         quoteResultEl.textContent = 'Error: Please select a valid vehicle type.';
                         return; // Stop the calculation
@@ -895,7 +896,8 @@
                 
                 const baseCost = mileageCost + weightCost;
                 const costAfterMultiplier = baseCost * servicesMultiplier;
-                const totalCost = costAfterMultiplier + totalLoadUnloadFee + totalStairCost + flatServiceFees + urgencyPremium + additionalStopFee;
+                const subtotalBeforeMinimum = costAfterMultiplier + totalLoadUnloadFee + totalStairCost + flatServiceFees + urgencyPremium + additionalStopFee;
+                const totalCost = Math.max(subtotalBeforeMinimum, minimumCharge);
                 finalQuote = Math.max(0, totalCost);
 
                 quoteResultEl.textContent = `Estimated Quote: $${finalQuote.toFixed(2)}`;
@@ -955,8 +957,17 @@
                     })
                     .then(result => {
                         console.log('Backend Calculated Quote Logging Response:', result);
-                        if (result && result.status === 'success') { console.log('Calculated quote data successfully logged by backend.'); }
-                        else { console.error('Backend reported an error logging calculated quote:', result ? result.message : 'Unknown error'); }
+                        if (result && result.status === 'success') {
+                            const verifiedQuote = Number(result.calculatedQuote);
+                            if (Number.isFinite(verifiedQuote)) {
+                                finalQuote = verifiedQuote;
+                                quoteResultEl.textContent = `Estimated Quote: ${verifiedQuote.toFixed(2)}`;
+                                bookBtn.dataset.quoteAmount = verifiedQuote.toFixed(2);
+                            }
+                            console.log('Calculated quote data successfully verified and logged by backend.');
+                        } else {
+                            console.error('Backend reported an error logging calculated quote:', result ? result.message : 'Unknown error');
+                        }
                     })
                     .catch(error => { console.error('Error sending calculated quote data to backend:', error); });
                 } catch (logError) { console.error("Error preparing/sending calculated quote data to backend:", logError); }

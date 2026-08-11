@@ -10,12 +10,20 @@ const app = express();
 
 const QUOTE_RULES = Object.freeze({
   vehicleRates: Object.freeze({
-    car: 0.80,
-    suv: 1.10,
-    pickup_truck: 1.25,
-    cargo_van: 1.50,
-    cargo_van_high_roof: 1.85,
-    box_truck: 2.24,
+    car: 1.50,
+    suv: 1.75,
+    pickup_truck: 2.00,
+    cargo_van: 2.25,
+    cargo_van_high_roof: 2.75,
+    box_truck: 3.50,
+  }),
+  vehicleMinimums: Object.freeze({
+    car: 30,
+    suv: 40,
+    pickup_truck: 50,
+    cargo_van: 75,
+    cargo_van_high_roof: 95,
+    box_truck: 150,
   }),
   weightRate: 0.03,
   maxTotalWeight: 4000,
@@ -151,13 +159,16 @@ function calculateAuthoritativeQuote(leadData) {
   const additionalStopFee = Math.max(0, stopsData.length - 2) * QUOTE_RULES.additionalStopFee;
   const baseCost = mileageCost + weightCost;
   const costAfterMultiplier = baseCost * servicesMultiplier;
-  const totalCost =
+  const subtotalBeforeMinimum =
     costAfterMultiplier +
     totalLoadUnloadFee +
     totalStairCost +
     flatServiceFees +
     urgencyPremium +
     additionalStopFee;
+  const vehicleMinimum = QUOTE_RULES.vehicleMinimums[vehicleType];
+  const minimumAdjustment = Math.max(0, vehicleMinimum - subtotalBeforeMinimum);
+  const totalCost = subtotalBeforeMinimum + minimumAdjustment;
 
   return {
     total: Number(Math.max(0, totalCost).toFixed(2)),
@@ -172,6 +183,8 @@ function calculateAuthoritativeQuote(leadData) {
       flatServiceFees: Number(flatServiceFees.toFixed(2)),
       urgencyPremium: Number(urgencyPremium.toFixed(2)),
       additionalStopFee: Number(additionalStopFee.toFixed(2)),
+      vehicleMinimum: Number(vehicleMinimum.toFixed(2)),
+      minimumAdjustment: Number(minimumAdjustment.toFixed(2)),
     },
   };
 }
