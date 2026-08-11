@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Instant Delivery Quote | Xpedite Now</title>
+  <link rel="icon" type="image/png" href="logo2026.png">
   <meta name="description" content="Request a fast, transparent local delivery quote from Xpedite Now." />
   <meta name="theme-color" content="#173a78" />
 
@@ -314,19 +315,24 @@ input[type="number"].pkg-qty {
       min-width: 0;
     }
 
-    .brand-mark {
+    .brand-logo-wrap {
       display: grid;
-      flex: 0 0 50px;
-      width: 50px;
-      height: 50px;
+      flex: 0 0 76px;
+      width: 76px;
+      height: 76px;
+      overflow: hidden;
       place-items: center;
-      border: 2px solid rgba(255, 255, 255, 0.72);
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.1);
-      color: #fff;
-      font-size: 1.1rem;
-      font-weight: 900;
-      letter-spacing: -0.04em;
+      border: 1px solid rgba(255, 255, 255, 0.62);
+      border-radius: 17px;
+      background: #fff;
+      box-shadow: 0 8px 20px rgba(4, 18, 49, 0.24);
+    }
+
+    .brand-logo {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
     }
 
     .brand-copy {
@@ -762,11 +768,11 @@ input[type="number"].pkg-qty {
         border-radius: 16px;
       }
 
-      .brand-mark {
-        flex-basis: 44px;
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
+      .brand-logo-wrap {
+        flex-basis: 58px;
+        width: 58px;
+        height: 58px;
+        border-radius: 13px;
       }
 
       .brand-copy span {
@@ -842,8 +848,15 @@ input[type="number"].pkg-qty {
         gap: 10px;
       }
 
+      .brand-logo-wrap {
+        flex-basis: 50px;
+        width: 50px;
+        height: 50px;
+        border-radius: 11px;
+      }
+
       .brand-copy strong {
-        font-size: 0.9rem;
+        font-size: 0.82rem;
       }
 
       .support-link strong {
@@ -1080,9 +1093,11 @@ input[type="number"].pkg-qty {
   <div class="page-shell">
     <header class="brand-header">
       <div class="brand-lockup">
-        <div class="brand-mark" aria-hidden="true">XN</div>
+        <span class="brand-logo-wrap">
+          <img class="brand-logo" src="logo2026.png" width="500" height="500" alt="Xpedite Now" decoding="async" fetchpriority="high">
+        </span>
         <div class="brand-copy">
-          <strong>XPEDITE NOW</strong>
+          <strong>Delivery Quote</strong>
           <span>Professional delivery services</span>
         </div>
       </div>
