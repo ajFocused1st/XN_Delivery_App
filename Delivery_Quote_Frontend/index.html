@@ -969,6 +969,62 @@ input[type="number"].pkg-qty {
       font-size: 0.9rem;
     }
 
+
+    /* --- Phase 5: operational consistency guidance --- */
+    .freight-attribute {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      margin: 14px 0 2px;
+    }
+
+    .freight-attribute input[type="checkbox"] {
+      flex: 0 0 auto;
+    }
+
+    .freight-attribute .inline-label {
+      font-weight: 700;
+    }
+
+    .handling-guidance {
+      margin: 20px 0 0;
+      padding: 15px 16px;
+      border: 1px solid #a9c5ed;
+      border-left: 5px solid var(--xn-blue-700);
+      border-radius: 11px;
+      background: #f2f7ff;
+      color: #263a59;
+    }
+
+    .handling-guidance[data-state="success"] {
+      border-color: #96ceb0;
+      border-left-color: #178252;
+      background: #f0fbf5;
+    }
+
+    .handling-guidance[data-state="error"] {
+      border-color: #e8a7a7;
+      border-left-color: #b42318;
+      background: #fff4f3;
+      color: #7a271a;
+    }
+
+    .handling-guidance strong {
+      display: block;
+      margin-bottom: 5px;
+      color: inherit;
+    }
+
+    .handling-guidance p,
+    .handling-guidance ul {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .handling-guidance ul {
+      padding-left: 20px;
+    }
+
     /* --- End Styles --- */
   </style>
 </head>
@@ -1085,6 +1141,11 @@ input[type="number"].pkg-qty {
               <option value="feet">Feet</option>
             </select>
           </div>
+          <div class="freight-attribute">
+            <input type="checkbox" id="pkgPalletized1" class="pkg-palletized" />
+            <label for="pkgPalletized1" class="inline-label">Palletized or skidded freight</label>
+          </div>
+          <small>Select this even if the description does not include “pallet” or “skid.”</small>
           <p class="upload-notice"><strong>Need to share a photo or document?</strong> Attachments are not uploaded through this instant quote. Add equipment or document details in Special Notes; dispatch can request files after booking.</p>
         </div>
       </div>
@@ -1140,6 +1201,10 @@ input[type="number"].pkg-qty {
       </div>
       <div>
         <input type="checkbox" id="extraLaborer" /> <label for="extraLaborer" class="inline-label">Extra Laborer</label>
+      </div>
+      <div id="handlingGuidance" class="handling-guidance" role="status" aria-live="polite" hidden>
+        <strong id="handlingGuidanceTitle"></strong>
+        <div id="handlingGuidanceDetails"></div>
       </div>
       <div class="step-actions">
         <button type="button" class="secondary" onclick="goToPrevStep(3)">Back to Shipment</button>
@@ -1211,6 +1276,16 @@ input[type="number"].pkg-qty {
             cargo_van: Object.freeze({ label: 'Cargo Van', maxWeight: 2500, maxVolumeCubicFeet: 300, maxItemDimensionsInches: Object.freeze([55, 65, 120]) }),
             cargo_van_high_roof: Object.freeze({ label: 'Cargo Van (High Roof)', maxWeight: 3500, maxVolumeCubicFeet: 500, maxItemDimensionsInches: Object.freeze([70, 72, 144]) }),
             box_truck: Object.freeze({ label: 'Box Truck', maxWeight: 4000, maxVolumeCubicFeet: 900, maxItemDimensionsInches: Object.freeze([84, 88, 192]) })
+        });
+
+        const HANDLING_RULES = Object.freeze({
+            soloDriverMaxItemWeight: 50,
+            assistedHandlingMaxItemWeight: 150,
+            stairTeamWeightThreshold: 50,
+            stairTeamLengthThreshold: 72,
+            stairCustomReviewWeight: 150,
+            stairCustomReviewLength: 96,
+            hazardousNotesMinLength: 10
         });
 
         if ('scrollRestoration' in history) {
@@ -1321,7 +1396,8 @@ input[type="number"].pkg-qty {
                 length: Number(group.querySelector('.pkg-length')?.value),
                 width: Number(group.querySelector('.pkg-width')?.value),
                 height: Number(group.querySelector('.pkg-height')?.value),
-                unit: group.querySelector('.pkg-unit')?.value || ''
+                unit: group.querySelector('.pkg-unit')?.value || '',
+                palletized: group.querySelector('.pkg-palletized')?.checked || false
             }));
         }
 
@@ -1347,15 +1423,23 @@ input[type="number"].pkg-qty {
                 ].sort((a, b) => a - b);
                 totalWeight += packageData.qty * packageData.weight;
                 totalVolumeCubicFeet += packageData.qty * dimensionsInches.reduce((product, dimension) => product * dimension, 1) / 1728;
-                isPalletized = isPalletized || /\b(pallet|pallets|skid|skids)\b/i.test(packageData.desc);
-                items.push({ packageNumber: index + 1, dimensionsInches });
+                isPalletized = isPalletized || Boolean(packageData.palletized) || /\b(pallet|pallets|skid|skids)\b/i.test(packageData.desc);
+                items.push({ packageNumber: index + 1, dimensionsInches, weightPerItem: packageData.weight });
             }
             const largestItem = items.reduce((largest, item) => {
                 const volume = item.dimensionsInches.reduce((product, dimension) => product * dimension, 1);
                 const largestVolume = largest ? largest.dimensionsInches.reduce((product, dimension) => product * dimension, 1) : -1;
                 return volume > largestVolume ? item : largest;
             }, null);
-            return { totalWeight, totalVolumeCubicFeet, isPalletized, items, largestItem };
+            return {
+                totalWeight,
+                totalVolumeCubicFeet,
+                isPalletized,
+                items,
+                largestItem,
+                maxItemWeight: Math.max(...items.map(item => item.weightPerItem)),
+                maxItemLongestDimension: Math.max(...items.map(item => item.dimensionsInches[2]))
+            };
         }
 
         function evaluateVehicleFit(vehicleType, shipmentProfile) {
@@ -1381,26 +1465,129 @@ input[type="number"].pkg-qty {
             return VEHICLE_CAPACITY_ORDER.find(vehicleType => evaluateVehicleFit(vehicleType, shipmentProfile).fits) || null;
         }
 
-        function getPalletHandlingIssue(shipmentProfile) {
-            if (!shipmentProfile?.isPalletized) return null;
-            const stopGroups = document.querySelectorAll('.address-group');
-            for (const group of stopGroups) {
-                const stairs = group.querySelector('.stairs-check');
-                if (stairs?.checked) {
-                    return {
-                        field: stairs,
-                        message: 'Palletized freight with stairs requires a custom dispatch review and cannot be booked through the instant quote.'
-                    };
-                }
+        function getOperationalIssues(shipmentProfile) {
+            if (!shipmentProfile) return [];
+            const issues = [];
+            const issueKeys = new Set();
+            const addIssue = (key, field, step, message) => {
+                if (issueKeys.has(key)) return;
+                issueKeys.add(key);
+                issues.push({ field, step, message });
+            };
+            const extraLaborer = document.getElementById('extraLaborer')?.checked || false;
+            const insideDelivery = document.getElementById('insideDelivery')?.checked || false;
+        
+            document.querySelectorAll('.address-group').forEach(group => {
                 const responsibility = group.querySelector('.load-unload-select');
-                if (responsibility?.value === 'driver') {
-                    return {
-                        field: responsibility,
-                        message: 'Driver-only loading or unloading is not available for palletized freight. Select Customer or Customer with Driver Assist.'
-                    };
+                const stairs = group.querySelector('.stairs-check');
+                const xpediteHandlesFreight = responsibility?.value === 'driver' ||
+                    responsibility?.value === 'driver_assist' ||
+                    insideDelivery;
+        
+                if (shipmentProfile.isPalletized && stairs?.checked) {
+                    addIssue(
+                        'pallet-stairs',
+                        stairs,
+                        1,
+                        'Palletized freight with stairs requires a custom dispatch review and cannot be booked through the instant quote.'
+                    );
                 }
+                if (shipmentProfile.isPalletized && responsibility?.value === 'driver') {
+                    addIssue(
+                        'pallet-driver',
+                        responsibility,
+                        1,
+                        'Driver-only loading or unloading is not available for palletized freight. Select Customer or Customer with Driver Assist.'
+                    );
+                }
+                if (xpediteHandlesFreight && !shipmentProfile.isPalletized &&
+                    shipmentProfile.maxItemWeight > HANDLING_RULES.assistedHandlingMaxItemWeight) {
+                    addIssue(
+                        'equipment-review',
+                        responsibility,
+                        1,
+                        `Items over ${HANDLING_RULES.assistedHandlingMaxItemWeight} lbs require a custom equipment review when Xpedite Now handles the freight.`
+                    );
+                } else if (responsibility?.value === 'driver' &&
+                    shipmentProfile.maxItemWeight > HANDLING_RULES.soloDriverMaxItemWeight &&
+                    !extraLaborer) {
+                    addIssue(
+                        'solo-driver-heavy',
+                        document.getElementById('extraLaborer'),
+                        3,
+                        `Driver-only handling of items over ${HANDLING_RULES.soloDriverMaxItemWeight} lbs requires an Extra Laborer, Customer assistance, or custom dispatch review.`
+                    );
+                }
+        
+                if (stairs?.checked && xpediteHandlesFreight && !shipmentProfile.isPalletized) {
+                    if (shipmentProfile.maxItemWeight > HANDLING_RULES.stairCustomReviewWeight ||
+                        shipmentProfile.maxItemLongestDimension > HANDLING_RULES.stairCustomReviewLength) {
+                        addIssue(
+                            'stair-custom-review',
+                            stairs,
+                            1,
+                            `Large stair carries over ${HANDLING_RULES.stairCustomReviewWeight} lbs or ${HANDLING_RULES.stairCustomReviewLength} inches require a custom dispatch review.`
+                        );
+                    } else if ((shipmentProfile.maxItemWeight > HANDLING_RULES.stairTeamWeightThreshold ||
+                        shipmentProfile.maxItemLongestDimension > HANDLING_RULES.stairTeamLengthThreshold) &&
+                        !extraLaborer) {
+                        addIssue(
+                            'stair-team',
+                            document.getElementById('extraLaborer'),
+                            3,
+                            'The entered stair carry requires an Extra Laborer based on the heaviest or longest item.'
+                        );
+                    }
+                }
+            });
+        
+            const hazardousBio = document.getElementById('hazardousBio')?.checked || false;
+            const specialNotes = document.getElementById('specialNotes');
+            if (hazardousBio && (specialNotes?.value.trim().length || 0) < HANDLING_RULES.hazardousNotesMinLength) {
+                addIssue(
+                    'hazardous-notes',
+                    specialNotes,
+                    3,
+                    `Hazardous or bio-hazardous shipments require at least ${HANDLING_RULES.hazardousNotesMinLength} characters in Special Notes describing the material and handling needs.`
+                );
             }
-            return null;
+            return issues;
+        }
+
+        function updateOperationalGuidance() {
+            const guidance = document.getElementById('handlingGuidance');
+            const title = document.getElementById('handlingGuidanceTitle');
+            const details = document.getElementById('handlingGuidanceDetails');
+            if (!guidance || !title || !details) return [];
+            const shipmentProfile = buildShipmentProfile(collectPackageDataFromForm());
+            if (!shipmentProfile) {
+                guidance.hidden = true;
+                details.replaceChildren();
+                return [];
+            }
+        
+            const issues = getOperationalIssues(shipmentProfile);
+            guidance.hidden = false;
+            details.replaceChildren();
+            if (issues.length === 0) {
+                guidance.dataset.state = 'success';
+                title.textContent = 'Handling selections are consistent.';
+                const message = document.createElement('p');
+                message.textContent = `Operational check passed. Heaviest item: ${shipmentProfile.maxItemWeight.toFixed(1)} lbs.`;
+                details.appendChild(message);
+                return [];
+            }
+        
+            guidance.dataset.state = 'error';
+            title.textContent = 'Please resolve these handling conflicts.';
+            const list = document.createElement('ul');
+            issues.forEach(issue => {
+                const item = document.createElement('li');
+                item.textContent = issue.message;
+                list.appendChild(item);
+            });
+            details.appendChild(list);
+            return issues;
         }
 
         function updateVehicleGuidance(autoSelect = false) {
@@ -1486,12 +1673,14 @@ input[type="number"].pkg-qty {
             document.getElementById('quoteForm')?.addEventListener('input', event => {
                 clearFieldError(event.target);
                 if (event.target.closest('#packageContainer')) updateVehicleGuidance(false);
+                updateOperationalGuidance();
             });
             document.getElementById('quoteForm')?.addEventListener('change', event => {
                 clearFieldError(event.target);
                 if (event.target.closest('#packageContainer') || event.target.id === 'vehicleType') {
                     updateVehicleGuidance(false);
                 }
+                updateOperationalGuidance();
             });
         }
 
@@ -1639,12 +1828,14 @@ input[type="number"].pkg-qty {
                         setFieldError(vehicleSelect, `Select ${recommendedLabel} or another enabled compatible vehicle.`);
                     }
         
-                    const handlingIssue = getPalletHandlingIssue(guidance.shipmentProfile);
-                    if (handlingIssue) {
-                        setFieldError(handlingIssue.field, handlingIssue.message);
-                        showStep(1);
-                        showFormMessage(handlingIssue.message, false);
-                        focusFirstInvalid(document.getElementById('step-1'));
+                    const handlingIssues = getOperationalIssues(guidance.shipmentProfile);
+                    updateOperationalGuidance();
+                    if (handlingIssues.length > 0) {
+                        const firstIssue = handlingIssues[0];
+                        setFieldError(firstIssue.field, firstIssue.message);
+                        if (currentStep !== firstIssue.step) showStep(firstIssue.step);
+                        showFormMessage(firstIssue.message, false);
+                        focusFirstInvalid(document.getElementById(`step-${firstIssue.step}`));
                         return false;
                     }
                 }
@@ -1662,7 +1853,10 @@ input[type="number"].pkg-qty {
 
         function goToNextStep(stepNumber) {
           if (!validateStep(stepNumber)) return;
-          if (stepNumber === 2) updateVehicleGuidance(true);
+          if (stepNumber === 2) {
+              updateVehicleGuidance(true);
+              updateOperationalGuidance();
+          }
           showStep(stepNumber + 1);
           if (currentStep === 4) buildSummary();
         }
@@ -1715,6 +1909,7 @@ input[type="number"].pkg-qty {
           if (container.id === 'packageContainer') {
               renumberPackages();
               updateVehicleGuidance(false);
+              updateOperationalGuidance();
           }
         }
         function renumberStops() {
@@ -1791,6 +1986,7 @@ input[type="number"].pkg-qty {
             const widthId = `pkgWidth${packageCounter}`;
             const heightId = `pkgHeight${packageCounter}`;
             const unitId = `pkgUnit${packageCounter}`;
+            const palletizedId = `pkgPalletized${packageCounter}`;
 
             pkgGroup.innerHTML = `
             <button type="button" class="remove-button" onclick="removeGroup(this)">Remove</button>
@@ -1800,10 +1996,16 @@ input[type="number"].pkg-qty {
              <small style="display: block; margin-top: -3px; margin-bottom: 10px; color: #6c757d;">Weight cost: $0.03 per pound (total weight).</small>
             <label>Dimensions (L x W x H per item):</label>
             <div class="inline-group"> <input type="number" id="${lengthId}" class="pkg-length dimension-input" min="0.1" step="0.1" placeholder="L" required title="Length" /> <span>x</span> <input type="number" id="${widthId}" class="pkg-width dimension-input" min="0.1" step="0.1" placeholder="W" required title="Width"/> <span>x</span> <input type="number" id="${heightId}" class="pkg-height dimension-input" min="0.1" step="0.1" placeholder="H" required title="Height"/> <select id="${unitId}" class="pkg-unit" required title="Dimension Unit"> <option value="inches" selected>Inches</option> <option value="feet">Feet</option> </select> </div>
+            <div class="freight-attribute">
+              <input type="checkbox" id="${palletizedId}" class="pkg-palletized" />
+              <label for="${palletizedId}" class="inline-label">Palletized or skidded freight</label>
+            </div>
+            <small>Select this even if the description does not include “pallet” or “skid.”</small>
             `;
             pkgContainer.appendChild(pkgGroup);
             renumberPackages();
             updateVehicleGuidance(false);
+            updateOperationalGuidance();
         }
         function renumberPackages() {
              const pkgContainer = document.getElementById('packageContainer');
@@ -1811,12 +2013,13 @@ input[type="number"].pkg-qty {
              allPkgGroups.forEach((group, index) => {
                  const pkgNumber = index + 1;
                  const qtyId = `pkgQty${pkgNumber}`; const descId = `pkgDesc${pkgNumber}`; const weightId = `pkgWeight${pkgNumber}`;
-                 const lengthId = `pkgLength${pkgNumber}`; const widthId = `pkgWidth${pkgNumber}`; const heightId = `pkgHeight${pkgNumber}`; const unitId = `pkgUnit${pkgNumber}`;
+                 const lengthId = `pkgLength${pkgNumber}`; const widthId = `pkgWidth${pkgNumber}`; const heightId = `pkgHeight${pkgNumber}`; const unitId = `pkgUnit${pkgNumber}`; const palletizedId = `pkgPalletized${pkgNumber}`;
                  group.querySelector('label[for^="pkgQty"]')?.setAttribute('for', qtyId); group.querySelector('.pkg-qty')?.setAttribute('id', qtyId);
                  group.querySelector('label[for^="pkgDesc"]')?.setAttribute('for', descId); group.querySelector('.pkg-desc')?.setAttribute('id', descId);
                  group.querySelector('label[for^="pkgWeight"]')?.setAttribute('for', weightId); group.querySelector('.pkg-weight')?.setAttribute('id', weightId);
                  group.querySelector('.pkg-length')?.setAttribute('id', lengthId); group.querySelector('.pkg-width')?.setAttribute('id', widthId);
                  group.querySelector('.pkg-height')?.setAttribute('id', heightId); group.querySelector('.pkg-unit')?.setAttribute('id', unitId);
+                 group.querySelector('label[for^="pkgPalletized"]')?.setAttribute('for', palletizedId); group.querySelector('.pkg-palletized')?.setAttribute('id', palletizedId);
                  const removeBtn = group.querySelector('.remove-button'); if(removeBtn) removeBtn.style.display = (pkgNumber === 1) ? 'none' : 'block';
              });
              packageCounter = allPkgGroups.length;
@@ -1873,8 +2076,9 @@ input[type="number"].pkg-qty {
                     const width = packageGroup.querySelector('.pkg-width')?.value || '0';
                     const height = packageGroup.querySelector('.pkg-height')?.value || '0';
                     const unit = packageGroup.querySelector('.pkg-unit')?.value || 'inches';
+                    const palletized = packageGroup.querySelector('.pkg-palletized')?.checked || false;
                     packageSummary += `<p><strong>Package ${index + 1} (${safe(quantity)}x):</strong> ${safe(description)}<br/>`;
-                    packageSummary += `<span style="margin-left: 10px;">Wt(ea): ${safe(weight)} lbs, Dim(ea): ${safe(length)}x${safe(width)}x${safe(height)} ${safe(unit)}</span></p>`;
+                    packageSummary += `<span style="margin-left: 10px;">Wt(ea): ${safe(weight)} lbs, Dim(ea): ${safe(length)}x${safe(width)}x${safe(height)} ${safe(unit)}, Palletized: ${palletized ? 'Yes' : 'No'}</span></p>`;
                 });
             }
         
@@ -2106,7 +2310,8 @@ input[type="number"].pkg-qty {
                         length: parseFloat(group.querySelector('.pkg-length')?.value || '0'),
                         width: parseFloat(group.querySelector('.pkg-width')?.value || '0'),
                         height: parseFloat(group.querySelector('.pkg-height')?.value || '0'),
-                        unit: group.querySelector('.pkg-unit')?.value || 'inches'
+                        unit: group.querySelector('.pkg-unit')?.value || 'inches',
+                        palletized: group.querySelector('.pkg-palletized')?.checked || false
                     }));
                     const serviceDetails = {
                         vehicleType: document.getElementById('vehicleType')?.value || '',
@@ -2199,8 +2404,9 @@ input[type="number"].pkg-qty {
                     const width = packageGroup.querySelector('.pkg-width')?.value || '0';
                     const height = packageGroup.querySelector('.pkg-height')?.value || '0';
                     const unit = packageGroup.querySelector('.pkg-unit')?.value || 'inches';
+                    const palletized = packageGroup.querySelector('.pkg-palletized')?.checked || false;
                     summaryText += `  Package ${index + 1} (${quantity}x): ${description}\n`;
-                    summaryText += `    Wt(ea): ${weight} lbs, Dim(ea): ${length}x${width}x${height} ${unit}\n`;
+                    summaryText += `    Wt(ea): ${weight} lbs, Dim(ea): ${length}x${width}x${height} ${unit}, Palletized: ${palletized ? 'Yes' : 'No'}\n`;
                 });
             }
         
@@ -2277,7 +2483,8 @@ input[type="number"].pkg-qty {
                 length: parseFloat(group.querySelector('.pkg-length')?.value || '0'),
                 width: parseFloat(group.querySelector('.pkg-width')?.value || '0'),
                 height: parseFloat(group.querySelector('.pkg-height')?.value || '0'),
-                unit: group.querySelector('.pkg-unit')?.value || 'inches'
+                unit: group.querySelector('.pkg-unit')?.value || 'inches',
+                palletized: group.querySelector('.pkg-palletized')?.checked || false
             }));
             if (packagesData.length === 0) { showFormMessage("Error: Need package details for payment."); return; }
 
