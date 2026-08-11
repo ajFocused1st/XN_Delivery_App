@@ -31,6 +31,9 @@ const QUOTE_RULES = Object.freeze({
 });
 
 function parseFiniteNumber(value, fieldName) {
+  if (value === undefined || value === null || value === '') {
+    throw new Error(fieldName + ' is required.');
+  }
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
     throw new Error(fieldName + ' must be a valid number.');
@@ -329,21 +332,29 @@ app.post('/log-calculated-quote', async (req, res) => {
     return res.status(400).json({ status: 'error', message: 'Incomplete lead data received.' });
   }
 
+  let authoritativeQuote;
   try {
-    const authoritativeQuote = calculateAuthoritativeQuote(leadData);
-    const submittedQuote = Number(leadData.calculatedQuote);
-    if (Number.isFinite(submittedQuote) && Math.abs(submittedQuote - authoritativeQuote.total) > 0.01) {
-      console.warn('Browser quote did not match the server quote.', {
-        submittedQuote,
-        authoritativeQuote: authoritativeQuote.total,
-      });
-    }
+    authoritativeQuote = calculateAuthoritativeQuote(leadData);
+  } catch (error) {
+    console.warn('Invalid quote details received for logging:', error.message);
+    return res.status(422).json({ status: 'error', message: error.message });
+  }
 
-    const verifiedLeadData = {
-      ...leadData,
-      totalMiles: authoritativeQuote.totalMiles,
-      calculatedQuote: authoritativeQuote.total,
-    };
+  const submittedQuote = Number(leadData.calculatedQuote);
+  if (Number.isFinite(submittedQuote) && Math.abs(submittedQuote - authoritativeQuote.total) > 0.01) {
+    console.warn('Browser quote did not match the server quote.', {
+      submittedQuote,
+      authoritativeQuote: authoritativeQuote.total,
+    });
+  }
+
+  const verifiedLeadData = {
+    ...leadData,
+    totalMiles: authoritativeQuote.totalMiles,
+    calculatedQuote: authoritativeQuote.total,
+  };
+
+  try {
     await logLeadDataToDB(verifiedLeadData, 'CalculatedQuote');
     return res.status(200).json({
       status: 'success',
@@ -351,8 +362,10 @@ app.post('/log-calculated-quote', async (req, res) => {
       calculatedQuote: authoritativeQuote.total,
     });
   } catch (error) {
-    console.warn('Invalid quote details received for logging:', error.message);
-    return res.status(422).json({ status: 'error', message: error.message });
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to log quote data to DB on server.',
+    });
   }
 });
 
