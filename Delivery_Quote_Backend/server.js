@@ -25,6 +25,22 @@ const QUOTE_RULES = Object.freeze({
     cargo_van_high_roof: 95,
     box_truck: 150,
   }),
+  vehicleCapacityOrder: Object.freeze([
+    'car',
+    'suv',
+    'pickup_truck',
+    'cargo_van',
+    'cargo_van_high_roof',
+    'box_truck',
+  ]),
+  vehicleCapacities: Object.freeze({
+    car: Object.freeze({ label: 'Car', maxWeight: 100, maxVolumeCubicFeet: 20, maxItemDimensionsInches: Object.freeze([24, 36, 48]) }),
+    suv: Object.freeze({ label: 'SUV', maxWeight: 300, maxVolumeCubicFeet: 60, maxItemDimensionsInches: Object.freeze([36, 48, 72]) }),
+    pickup_truck: Object.freeze({ label: 'Pickup Truck', maxWeight: 1000, maxVolumeCubicFeet: 120, maxItemDimensionsInches: Object.freeze([48, 60, 96]) }),
+    cargo_van: Object.freeze({ label: 'Cargo Van', maxWeight: 2500, maxVolumeCubicFeet: 300, maxItemDimensionsInches: Object.freeze([55, 65, 120]) }),
+    cargo_van_high_roof: Object.freeze({ label: 'Cargo Van (High Roof)', maxWeight: 3500, maxVolumeCubicFeet: 500, maxItemDimensionsInches: Object.freeze([70, 72, 144]) }),
+    box_truck: Object.freeze({ label: 'Box Truck', maxWeight: 4000, maxVolumeCubicFeet: 900, maxItemDimensionsInches: Object.freeze([84, 88, 192]) }),
+  }),
   weightRate: 0.03,
   maxTotalWeight: 4000,
   urgencyFees: Object.freeze({
@@ -51,6 +67,91 @@ function parseFiniteNumber(value, fieldName) {
 
 function isSelected(value) {
   return value === true || value === 1 || value === '1' || value === 'true' || value === 'on';
+}
+
+function buildShipmentProfile(packagesData) {
+  if (!Array.isArray(packagesData) || packagesData.length < 1) {
+    throw new Error('At least one package is required.');
+  }
+
+  let totalWeight = 0;
+  let totalVolumeCubicFeet = 0;
+  let isPalletized = false;
+  const items = [];
+
+  packagesData.forEach((packageData, index) => {
+    const packageNumber = index + 1;
+    const quantity = parseFiniteNumber(packageData?.qty, `Package ${packageNumber} quantity`);
+    const weightPerItem = parseFiniteNumber(packageData?.weight, `Package ${packageNumber} weight`);
+    const length = parseFiniteNumber(packageData?.length, `Package ${packageNumber} length`);
+    const width = parseFiniteNumber(packageData?.width, `Package ${packageNumber} width`);
+    const height = parseFiniteNumber(packageData?.height, `Package ${packageNumber} height`);
+    const unit = packageData?.unit;
+
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+      throw new Error(`Package ${packageNumber} quantity must be a whole number between 1 and 999.`);
+    }
+    if (weightPerItem < 0 || weightPerItem > QUOTE_RULES.maxTotalWeight) {
+      throw new Error(`Package ${packageNumber} weight is outside the permitted range.`);
+    }
+    if (![length, width, height].every(dimension => dimension > 0)) {
+      throw new Error(`Package ${packageNumber} dimensions must be greater than zero.`);
+    }
+    if (unit !== 'inches' && unit !== 'feet') {
+      throw new Error(`Package ${packageNumber} dimension unit must be inches or feet.`);
+    }
+
+    const multiplier = unit === 'feet' ? 12 : 1;
+    const dimensionsInches = [length * multiplier, width * multiplier, height * multiplier].sort((a, b) => a - b);
+    if (dimensionsInches.some(dimension => dimension > 1200)) {
+      throw new Error(`Package ${packageNumber} dimensions are outside the permitted range.`);
+    }
+
+    totalWeight += quantity * weightPerItem;
+    totalVolumeCubicFeet += quantity * dimensionsInches.reduce((product, dimension) => product * dimension, 1) / 1728;
+    isPalletized = isPalletized || /\b(pallet|pallets|skid|skids)\b/i.test(String(packageData?.desc || ''));
+    items.push({ packageNumber, dimensionsInches });
+  });
+
+  if (totalWeight > QUOTE_RULES.maxTotalWeight) {
+    throw new Error('Total weight exceeds the maximum limit of 4000 lbs.');
+  }
+
+  return {
+    totalWeight,
+    totalVolumeCubicFeet,
+    isPalletized,
+    items,
+  };
+}
+
+function evaluateVehicleFit(vehicleType, shipmentProfile) {
+  const capacity = QUOTE_RULES.vehicleCapacities[vehicleType];
+  if (!capacity) {
+    return { fits: false, reasons: ['A valid vehicle type is required.'] };
+  }
+
+  const reasons = [];
+  if (shipmentProfile.totalWeight > capacity.maxWeight) {
+    reasons.push(`weight exceeds ${capacity.maxWeight} lbs`);
+  }
+  if (shipmentProfile.totalVolumeCubicFeet > capacity.maxVolumeCubicFeet) {
+    reasons.push(`estimated cargo volume exceeds ${capacity.maxVolumeCubicFeet} cubic feet`);
+  }
+  const oversizedItem = shipmentProfile.items.find(item =>
+    item.dimensionsInches.some((dimension, index) => dimension > capacity.maxItemDimensionsInches[index])
+  );
+  if (oversizedItem) {
+    reasons.push(`package ${oversizedItem.packageNumber} dimensions exceed the cargo opening`);
+  }
+
+  return { fits: reasons.length === 0, reasons };
+}
+
+function getVehicleRecommendation(shipmentProfile) {
+  return QUOTE_RULES.vehicleCapacityOrder.find(vehicleType =>
+    evaluateVehicleFit(vehicleType, shipmentProfile).fits
+  ) || null;
 }
 
 function getDriverHandlingFee(totalWeight) {
@@ -81,32 +182,24 @@ function calculateAuthoritativeQuote(leadData) {
   }
 
   const packagesData = leadData.packagesData;
-  if (!Array.isArray(packagesData) || packagesData.length < 1) {
-    throw new Error('At least one package is required.');
-  }
-
-  let totalWeight = 0;
-  for (const packageData of packagesData) {
-    const quantity = parseFiniteNumber(packageData?.qty, 'Package quantity');
-    const weightPerItem = parseFiniteNumber(packageData?.weight, 'Package weight');
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
-      throw new Error('Package quantity must be a whole number between 1 and 999.');
-    }
-    if (weightPerItem < 0 || weightPerItem > QUOTE_RULES.maxTotalWeight) {
-      throw new Error('Package weight is outside the permitted range.');
-    }
-    totalWeight += quantity * weightPerItem;
-  }
-
-  if (totalWeight > QUOTE_RULES.maxTotalWeight) {
-    throw new Error('Total weight exceeds the maximum limit of 4000 lbs.');
-  }
+  const shipmentProfile = buildShipmentProfile(packagesData);
+  const totalWeight = shipmentProfile.totalWeight;
 
   const serviceDetails = leadData.serviceDetails || {};
   const vehicleType = serviceDetails.vehicleType;
   const mileageRate = QUOTE_RULES.vehicleRates[vehicleType];
   if (!mileageRate) {
     throw new Error('A valid vehicle type is required.');
+  }
+
+  const vehicleFit = evaluateVehicleFit(vehicleType, shipmentProfile);
+  const recommendedVehicle = getVehicleRecommendation(shipmentProfile);
+  if (!vehicleFit.fits) {
+    const selectedLabel = QUOTE_RULES.vehicleCapacities[vehicleType].label;
+    const recommendationText = recommendedVehicle
+      ? ` Select ${QUOTE_RULES.vehicleCapacities[recommendedVehicle].label} or a larger compatible vehicle.`
+      : ' Contact dispatch for a custom equipment review.';
+    throw new Error(`${selectedLabel} is not compatible with this shipment: ${vehicleFit.reasons.join('; ')}.${recommendationText}`);
   }
 
   let totalLoadUnloadFee = 0;
@@ -118,6 +211,13 @@ function calculateAuthoritativeQuote(leadData) {
     const responsibility = stop?.loadUnload;
     if (!allowedResponsibilities.has(responsibility)) {
       throw new Error('Each stop must specify a valid loading responsibility.');
+    }
+
+    if (shipmentProfile.isPalletized && responsibility === 'driver') {
+      throw new Error('Driver-only loading or unloading is not available for palletized freight. Select Customer or Customer with Driver Assist.');
+    }
+    if (shipmentProfile.isPalletized && isSelected(stop?.stairs)) {
+      throw new Error('Palletized freight with stairs requires a custom dispatch review and cannot be booked through the instant quote.');
     }
 
     if (responsibility === 'driver') {
@@ -182,6 +282,8 @@ function calculateAuthoritativeQuote(leadData) {
     total: Number(Math.max(0, totalCost).toFixed(2)),
     totalMiles: Number(totalMiles.toFixed(2)),
     totalWeight: Number(totalWeight.toFixed(2)),
+    totalVolumeCubicFeet: Number(shipmentProfile.totalVolumeCubicFeet.toFixed(2)),
+    recommendedVehicle,
     breakdown: {
       mileageCost: Number(mileageCost.toFixed(2)),
       weightCost: Number(weightCost.toFixed(2)),

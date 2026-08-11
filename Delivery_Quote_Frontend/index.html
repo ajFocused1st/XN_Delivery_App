@@ -927,6 +927,48 @@ input[type="number"].pkg-qty {
       color: var(--xn-blue-900);
     }
 
+
+    /* --- Phase 4: vehicle-fit guidance --- */
+    .vehicle-helper {
+      margin: -2px 0 10px;
+      color: var(--xn-muted);
+      font-size: 0.9rem;
+    }
+
+    .vehicle-guidance {
+      margin: 4px 0 20px;
+      padding: 15px 16px;
+      border: 1px solid #a9c5ed;
+      border-left: 5px solid var(--xn-blue-700);
+      border-radius: 11px;
+      background: #f2f7ff;
+      color: #263a59;
+    }
+
+    .vehicle-guidance[data-state="success"] {
+      border-color: #96ceb0;
+      border-left-color: #178252;
+      background: #f0fbf5;
+    }
+
+    .vehicle-guidance[data-state="error"] {
+      border-color: #e8a7a7;
+      border-left-color: #b42318;
+      background: #fff4f3;
+      color: #7a271a;
+    }
+
+    .vehicle-guidance strong {
+      display: block;
+      margin-bottom: 4px;
+      color: inherit;
+    }
+
+    .vehicle-guidance p {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
     /* --- End Styles --- */
   </style>
 </head>
@@ -1033,11 +1075,11 @@ input[type="number"].pkg-qty {
           <small style="display: block; margin-top: -3px; margin-bottom: 10px; color: #6c757d;">Weight cost: $0.03 per pound (total weight).</small>
           <label>Dimensions (L x W x H per item):</label>
           <div class="inline-group">
-            <input type="number" id="pkgLength1" class="pkg-length dimension-input" min="0" step="0.1" placeholder="L" required title="Length" />
+            <input type="number" id="pkgLength1" class="pkg-length dimension-input" min="0.1" step="0.1" placeholder="L" required title="Length" />
             <span>x</span>
-            <input type="number" id="pkgWidth1" class="pkg-width dimension-input" min="0" step="0.1" placeholder="W" required title="Width"/>
+            <input type="number" id="pkgWidth1" class="pkg-width dimension-input" min="0.1" step="0.1" placeholder="W" required title="Width"/>
              <span>x</span>
-            <input type="number" id="pkgHeight1" class="pkg-height dimension-input" min="0" step="0.1" placeholder="H" required title="Height"/>
+            <input type="number" id="pkgHeight1" class="pkg-height dimension-input" min="0.1" step="0.1" placeholder="H" required title="Height"/>
             <select id="pkgUnit1" class="pkg-unit" required title="Dimension Unit">
               <option value="inches" selected>Inches</option>
               <option value="feet">Feet</option>
@@ -1056,8 +1098,8 @@ input[type="number"].pkg-qty {
     <div class="form-step" id="step-3">
       <h3>Step 3: Schedule &amp; Services</h3>
       <label for="vehicleType">Select Vehicle Type:</label>
-      <!-- UPDATED VEHICLE LIST -->
-      <select id="vehicleType" required>
+      <p class="vehicle-helper">We compare the entered weight, dimensions, and estimated cargo volume with conservative instant-quote limits.</p>
+      <select id="vehicleType" aria-describedby="vehicleGuidance" required>
         <option value="">--Select--</option>
         <option value="car">Car</option>
         <option value="suv">SUV</option>
@@ -1066,6 +1108,10 @@ input[type="number"].pkg-qty {
         <option value="cargo_van_high_roof">Cargo Van (High Roof)</option>
         <option value="box_truck">Box Truck</option>
       </select>
+      <div id="vehicleGuidance" class="vehicle-guidance" role="status" aria-live="polite" hidden>
+        <strong id="vehicleGuidanceTitle"></strong>
+        <p id="vehicleGuidanceDetails"></p>
+      </div>
       <label for="pickupDate">Pickup Date:</label>
       <input type="date" id="pickupDate" required />
       <label for="pickupTime">Pickup Time:</label>
@@ -1150,6 +1196,22 @@ input[type="number"].pkg-qty {
         let geocoder;
         let calculatedTotalMiles = 0;
         const stepLabels = ['Route', 'Shipment', 'Service', 'Review'];
+        const VEHICLE_CAPACITY_ORDER = [
+            'car',
+            'suv',
+            'pickup_truck',
+            'cargo_van',
+            'cargo_van_high_roof',
+            'box_truck'
+        ];
+        const VEHICLE_CAPACITIES = Object.freeze({
+            car: Object.freeze({ label: 'Car', maxWeight: 100, maxVolumeCubicFeet: 20, maxItemDimensionsInches: Object.freeze([24, 36, 48]) }),
+            suv: Object.freeze({ label: 'SUV', maxWeight: 300, maxVolumeCubicFeet: 60, maxItemDimensionsInches: Object.freeze([36, 48, 72]) }),
+            pickup_truck: Object.freeze({ label: 'Pickup Truck', maxWeight: 1000, maxVolumeCubicFeet: 120, maxItemDimensionsInches: Object.freeze([48, 60, 96]) }),
+            cargo_van: Object.freeze({ label: 'Cargo Van', maxWeight: 2500, maxVolumeCubicFeet: 300, maxItemDimensionsInches: Object.freeze([55, 65, 120]) }),
+            cargo_van_high_roof: Object.freeze({ label: 'Cargo Van (High Roof)', maxWeight: 3500, maxVolumeCubicFeet: 500, maxItemDimensionsInches: Object.freeze([70, 72, 144]) }),
+            box_truck: Object.freeze({ label: 'Box Truck', maxWeight: 4000, maxVolumeCubicFeet: 900, maxItemDimensionsInches: Object.freeze([84, 88, 192]) })
+        });
 
         if ('scrollRestoration' in history) {
             history.scrollRestoration = 'manual';
@@ -1182,9 +1244,13 @@ input[type="number"].pkg-qty {
             if (!field) return;
             const errorId = field.getAttribute('data-error-id');
             if (errorId) document.getElementById(errorId)?.remove();
+            const describedBy = (field.getAttribute('aria-describedby') || '')
+                .split(/\s+/)
+                .filter(id => id && id !== errorId);
+            if (describedBy.length) field.setAttribute('aria-describedby', describedBy.join(' '));
+            else field.removeAttribute('aria-describedby');
             field.removeAttribute('data-error-id');
             field.removeAttribute('aria-invalid');
-            field.removeAttribute('aria-describedby');
             field.closest('.error-border')?.classList.remove('error-border');
         }
 
@@ -1196,8 +1262,10 @@ input[type="number"].pkg-qty {
             error.className = 'field-error';
             error.id = errorId;
             error.textContent = message;
+            const describedBy = new Set((field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+            describedBy.add(errorId);
             field.setAttribute('aria-invalid', 'true');
-            field.setAttribute('aria-describedby', errorId);
+            field.setAttribute('aria-describedby', Array.from(describedBy).join(' '));
             field.setAttribute('data-error-id', errorId);
             field.insertAdjacentElement('afterend', error);
         }
@@ -1245,6 +1313,167 @@ input[type="number"].pkg-qty {
             return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
         }
 
+        function collectPackageDataFromForm() {
+            return Array.from(document.querySelectorAll('.package-group')).map(group => ({
+                qty: Number(group.querySelector('.pkg-qty')?.value),
+                desc: group.querySelector('.pkg-desc')?.value || '',
+                weight: Number(group.querySelector('.pkg-weight')?.value),
+                length: Number(group.querySelector('.pkg-length')?.value),
+                width: Number(group.querySelector('.pkg-width')?.value),
+                height: Number(group.querySelector('.pkg-height')?.value),
+                unit: group.querySelector('.pkg-unit')?.value || ''
+            }));
+        }
+
+        function buildShipmentProfile(packagesData) {
+            if (!Array.isArray(packagesData) || packagesData.length < 1) return null;
+            let totalWeight = 0;
+            let totalVolumeCubicFeet = 0;
+            let isPalletized = false;
+            const items = [];
+            for (let index = 0; index < packagesData.length; index++) {
+                const packageData = packagesData[index];
+                const values = [packageData.qty, packageData.weight, packageData.length, packageData.width, packageData.height];
+                if (!values.every(Number.isFinite) || packageData.qty < 1 || !Number.isInteger(packageData.qty) ||
+                    packageData.weight < 0 || packageData.length <= 0 || packageData.width <= 0 || packageData.height <= 0 ||
+                    !['inches', 'feet'].includes(packageData.unit)) {
+                    return null;
+                }
+                const multiplier = packageData.unit === 'feet' ? 12 : 1;
+                const dimensionsInches = [
+                    packageData.length * multiplier,
+                    packageData.width * multiplier,
+                    packageData.height * multiplier
+                ].sort((a, b) => a - b);
+                totalWeight += packageData.qty * packageData.weight;
+                totalVolumeCubicFeet += packageData.qty * dimensionsInches.reduce((product, dimension) => product * dimension, 1) / 1728;
+                isPalletized = isPalletized || /\b(pallet|pallets|skid|skids)\b/i.test(packageData.desc);
+                items.push({ packageNumber: index + 1, dimensionsInches });
+            }
+            const largestItem = items.reduce((largest, item) => {
+                const volume = item.dimensionsInches.reduce((product, dimension) => product * dimension, 1);
+                const largestVolume = largest ? largest.dimensionsInches.reduce((product, dimension) => product * dimension, 1) : -1;
+                return volume > largestVolume ? item : largest;
+            }, null);
+            return { totalWeight, totalVolumeCubicFeet, isPalletized, items, largestItem };
+        }
+
+        function evaluateVehicleFit(vehicleType, shipmentProfile) {
+            const capacity = VEHICLE_CAPACITIES[vehicleType];
+            if (!capacity || !shipmentProfile) return { fits: false, reasons: ['Shipment details are incomplete.'] };
+            const reasons = [];
+            if (shipmentProfile.totalWeight > capacity.maxWeight) {
+                reasons.push(`weight exceeds ${capacity.maxWeight} lbs`);
+            }
+            if (shipmentProfile.totalVolumeCubicFeet > capacity.maxVolumeCubicFeet) {
+                reasons.push(`estimated cargo volume exceeds ${capacity.maxVolumeCubicFeet} cubic feet`);
+            }
+            const oversizedItem = shipmentProfile.items.find(item =>
+                item.dimensionsInches.some((dimension, index) => dimension > capacity.maxItemDimensionsInches[index])
+            );
+            if (oversizedItem) {
+                reasons.push(`package ${oversizedItem.packageNumber} dimensions exceed the cargo opening`);
+            }
+            return { fits: reasons.length === 0, reasons };
+        }
+
+        function getVehicleRecommendation(shipmentProfile) {
+            return VEHICLE_CAPACITY_ORDER.find(vehicleType => evaluateVehicleFit(vehicleType, shipmentProfile).fits) || null;
+        }
+
+        function getPalletHandlingIssue(shipmentProfile) {
+            if (!shipmentProfile?.isPalletized) return null;
+            const stopGroups = document.querySelectorAll('.address-group');
+            for (const group of stopGroups) {
+                const stairs = group.querySelector('.stairs-check');
+                if (stairs?.checked) {
+                    return {
+                        field: stairs,
+                        message: 'Palletized freight with stairs requires a custom dispatch review and cannot be booked through the instant quote.'
+                    };
+                }
+                const responsibility = group.querySelector('.load-unload-select');
+                if (responsibility?.value === 'driver') {
+                    return {
+                        field: responsibility,
+                        message: 'Driver-only loading or unloading is not available for palletized freight. Select Customer or Customer with Driver Assist.'
+                    };
+                }
+            }
+            return null;
+        }
+
+        function updateVehicleGuidance(autoSelect = false) {
+            const vehicleSelect = document.getElementById('vehicleType');
+            const guidance = document.getElementById('vehicleGuidance');
+            const title = document.getElementById('vehicleGuidanceTitle');
+            const details = document.getElementById('vehicleGuidanceDetails');
+            if (!vehicleSelect || !guidance || !title || !details) return null;
+        
+            const shipmentProfile = buildShipmentProfile(collectPackageDataFromForm());
+            Array.from(vehicleSelect.options).forEach(option => {
+                if (option.value) option.disabled = false;
+            });
+            if (!shipmentProfile) {
+                guidance.hidden = true;
+                return null;
+            }
+        
+            const fitByVehicle = {};
+            VEHICLE_CAPACITY_ORDER.forEach(vehicleType => {
+                fitByVehicle[vehicleType] = evaluateVehicleFit(vehicleType, shipmentProfile);
+                const option = Array.from(vehicleSelect.options).find(candidate => candidate.value === vehicleType);
+                if (option) option.disabled = !fitByVehicle[vehicleType].fits;
+            });
+        
+            const recommendedVehicle = getVehicleRecommendation(shipmentProfile);
+            const previousSelection = vehicleSelect.value;
+            if (previousSelection && !fitByVehicle[previousSelection]?.fits) {
+                vehicleSelect.value = '';
+            }
+            let didAutoSelect = false;
+            if (autoSelect && !vehicleSelect.value && recommendedVehicle) {
+                vehicleSelect.value = recommendedVehicle;
+                didAutoSelect = true;
+            }
+        
+            const selectedVehicle = vehicleSelect.value;
+            const metrics = `${shipmentProfile.totalWeight.toFixed(1)} lbs, approximately ${shipmentProfile.totalVolumeCubicFeet.toFixed(1)} cubic feet`;
+            const largestDimensions = shipmentProfile.largestItem?.dimensionsInches.slice().reverse().map(value => Number(value.toFixed(1))).join(' × ');
+            const dimensionText = largestDimensions ? `; largest item ${largestDimensions} inches` : '';
+        
+            guidance.hidden = false;
+            if (!recommendedVehicle) {
+                guidance.dataset.state = 'error';
+                title.textContent = 'No instant-quote vehicle can safely be recommended.';
+                details.textContent = `Entered shipment: ${metrics}${dimensionText}. Contact dispatch for a custom equipment review.`;
+                return { shipmentProfile, recommendedVehicle: null, selectedVehicle: '', selectedFit: null };
+            }
+        
+            guidance.dataset.state = 'success';
+            const recommendedLabel = VEHICLE_CAPACITIES[recommendedVehicle].label;
+            const selectedLabel = selectedVehicle ? VEHICLE_CAPACITIES[selectedVehicle].label : '';
+            if (didAutoSelect) title.textContent = `${recommendedLabel} was recommended and selected.`;
+            else if (selectedVehicle) title.textContent = `${selectedLabel} fits this shipment.`;
+            else title.textContent = `${recommendedLabel} is the smallest recommended vehicle.`;
+        
+            let guidanceText = `Entered shipment: ${metrics}${dimensionText}. Smallest capacity match: ${recommendedLabel}.`;
+            if (selectedVehicle && selectedVehicle !== recommendedVehicle) {
+                guidanceText += ` Your larger ${selectedLabel} selection also fits.`;
+            }
+            if (shipmentProfile.isPalletized) {
+                guidanceText += ' Pallet handling restrictions apply at each stop.';
+            }
+            guidanceText += ' Dispatch will confirm final fit and equipment.';
+            details.textContent = guidanceText;
+            return {
+                shipmentProfile,
+                recommendedVehicle,
+                selectedVehicle,
+                selectedFit: selectedVehicle ? fitByVehicle[selectedVehicle] : null
+            };
+        }
+
         function initializeQuoteEnhancements() {
             document.getElementById('quoteForm')?.addEventListener('submit', event => event.preventDefault());
             const pickupDate = document.getElementById('pickupDate');
@@ -1254,8 +1483,16 @@ input[type="number"].pkg-qty {
             phone?.addEventListener('input', () => {
                 phone.value = formatPhoneNumber(phone.value);
             });
-            document.getElementById('quoteForm')?.addEventListener('input', event => clearFieldError(event.target));
-            document.getElementById('quoteForm')?.addEventListener('change', event => clearFieldError(event.target));
+            document.getElementById('quoteForm')?.addEventListener('input', event => {
+                clearFieldError(event.target);
+                if (event.target.closest('#packageContainer')) updateVehicleGuidance(false);
+            });
+            document.getElementById('quoteForm')?.addEventListener('change', event => {
+                clearFieldError(event.target);
+                if (event.target.closest('#packageContainer') || event.target.id === 'vehicleType') {
+                    updateVehicleGuidance(false);
+                }
+            });
         }
 
         // --- Initialization ---
@@ -1341,8 +1578,10 @@ input[type="number"].pkg-qty {
                 if (field.validity.valueMissing) message = `Please enter or select ${label}.`;
                 else if (field.validity.typeMismatch && field.type === 'email') message = 'Enter a valid email address.';
                 else if (field.validity.rangeUnderflow) message = `${label} must be at least ${field.min}.`;
+                else if (field.validity.stepMismatch) message = `${label} must be a valid whole-number quantity.`;
                 setFieldError(field, message);
             });
+        
             if (stepNumber === 1) {
                 const stops = currentStepDiv.querySelectorAll('.address-group');
                 if (stops.length < 2) {
@@ -1361,10 +1600,21 @@ input[type="number"].pkg-qty {
                     }
                 });
             }
-            if (stepNumber === 2 && currentStepDiv.querySelectorAll('.package-group').length < 1) {
-                isValid = false;
-                showFormMessage('Please add at least one package.', false);
+        
+            if (stepNumber === 2) {
+                if (currentStepDiv.querySelectorAll('.package-group').length < 1) {
+                    isValid = false;
+                    showFormMessage('Please add at least one package.', false);
+                }
+                if (isValid) {
+                    const guidance = updateVehicleGuidance(false);
+                    if (!guidance?.recommendedVehicle) {
+                        isValid = false;
+                        showFormMessage('This shipment exceeds the instant-quote vehicle limits. Contact dispatch for a custom equipment review.');
+                    }
+                }
             }
+        
             if (stepNumber === 3) {
                 const pickupDate = document.getElementById('pickupDate');
                 const pickupTime = document.getElementById('pickupTime');
@@ -1376,7 +1626,30 @@ input[type="number"].pkg-qty {
                         setFieldError(pickupTime, 'Choose a pickup date and time that is not in the past.');
                     }
                 }
+        
+                const guidance = updateVehicleGuidance(false);
+                const vehicleSelect = document.getElementById('vehicleType');
+                if (guidance?.shipmentProfile) {
+                    if (!guidance.recommendedVehicle) {
+                        isValid = false;
+                        setFieldError(vehicleSelect, 'No instant-quote vehicle is compatible. Contact dispatch for a custom equipment review.');
+                    } else if (!vehicleSelect.value || !guidance.selectedFit?.fits) {
+                        isValid = false;
+                        const recommendedLabel = VEHICLE_CAPACITIES[guidance.recommendedVehicle].label;
+                        setFieldError(vehicleSelect, `Select ${recommendedLabel} or another enabled compatible vehicle.`);
+                    }
+        
+                    const handlingIssue = getPalletHandlingIssue(guidance.shipmentProfile);
+                    if (handlingIssue) {
+                        setFieldError(handlingIssue.field, handlingIssue.message);
+                        showStep(1);
+                        showFormMessage(handlingIssue.message, false);
+                        focusFirstInvalid(document.getElementById('step-1'));
+                        return false;
+                    }
+                }
             }
+        
             if (!isValid) {
                 if (currentStep !== stepNumber) showStep(stepNumber);
                 if (document.getElementById('formMessage')?.hidden) {
@@ -1389,6 +1662,7 @@ input[type="number"].pkg-qty {
 
         function goToNextStep(stepNumber) {
           if (!validateStep(stepNumber)) return;
+          if (stepNumber === 2) updateVehicleGuidance(true);
           showStep(stepNumber + 1);
           if (currentStep === 4) buildSummary();
         }
@@ -1438,7 +1712,10 @@ input[type="number"].pkg-qty {
            if (container.id === 'addressContainer' && container.children.length <= 2) { showFormMessage("You need at least two stops (a pickup and a dropoff)."); return; }
           group.remove();
           if (container.id === 'addressContainer') renumberStops();
-          if (container.id === 'packageContainer') renumberPackages();
+          if (container.id === 'packageContainer') {
+              renumberPackages();
+              updateVehicleGuidance(false);
+          }
         }
         function renumberStops() {
              const addressContainer = document.getElementById('addressContainer');
@@ -1522,10 +1799,11 @@ input[type="number"].pkg-qty {
             <label for="${weightId}">Weight (lbs per item):</label> <input type="number" id="${weightId}" class="pkg-weight" min="0" step="0.1" placeholder="Weight per item in lbs" required />
              <small style="display: block; margin-top: -3px; margin-bottom: 10px; color: #6c757d;">Weight cost: $0.03 per pound (total weight).</small>
             <label>Dimensions (L x W x H per item):</label>
-            <div class="inline-group"> <input type="number" id="${lengthId}" class="pkg-length dimension-input" min="0" step="0.1" placeholder="L" required title="Length" /> <span>x</span> <input type="number" id="${widthId}" class="pkg-width dimension-input" min="0" step="0.1" placeholder="W" required title="Width"/> <span>x</span> <input type="number" id="${heightId}" class="pkg-height dimension-input" min="0" step="0.1" placeholder="H" required title="Height"/> <select id="${unitId}" class="pkg-unit" required title="Dimension Unit"> <option value="inches" selected>Inches</option> <option value="feet">Feet</option> </select> </div>
+            <div class="inline-group"> <input type="number" id="${lengthId}" class="pkg-length dimension-input" min="0.1" step="0.1" placeholder="L" required title="Length" /> <span>x</span> <input type="number" id="${widthId}" class="pkg-width dimension-input" min="0.1" step="0.1" placeholder="W" required title="Width"/> <span>x</span> <input type="number" id="${heightId}" class="pkg-height dimension-input" min="0.1" step="0.1" placeholder="H" required title="Height"/> <select id="${unitId}" class="pkg-unit" required title="Dimension Unit"> <option value="inches" selected>Inches</option> <option value="feet">Feet</option> </select> </div>
             `;
             pkgContainer.appendChild(pkgGroup);
             renumberPackages();
+            updateVehicleGuidance(false);
         }
         function renumberPackages() {
              const pkgContainer = document.getElementById('packageContainer');
@@ -1612,7 +1890,10 @@ input[type="number"].pkg-qty {
             const fragileHandling = document.getElementById('fragileHandling').checked;
             const extraLaborer = document.getElementById('extraLaborer').checked;
         
-            let extrasSummary = `<h4>Details & Services</h4><p>Vehicle: ${safe(vehicleTypeText)}</p><p>Pickup Date/Time: ${safe(pickupDate || 'N/A')} ${safe(pickupTime || 'N/A')}</p><p>Urgency: ${safe(urgencyText)}</p>`;
+            const shipmentProfile = buildShipmentProfile(collectPackageDataFromForm());
+            const recommendedVehicle = shipmentProfile ? getVehicleRecommendation(shipmentProfile) : null;
+            const recommendedVehicleLabel = recommendedVehicle ? VEHICLE_CAPACITIES[recommendedVehicle].label : 'Custom dispatch review';
+            let extrasSummary = `<h4>Details & Services</h4><p>Vehicle: ${safe(vehicleTypeText)}</p><p>Capacity Recommendation: ${safe(recommendedVehicleLabel)}</p><p>Pickup Date/Time: ${safe(pickupDate || 'N/A')} ${safe(pickupTime || 'N/A')}</p><p>Urgency: ${safe(urgencyText)}</p>`;
             extrasSummary += `<p>Special Notes: ${safe(specialNotes)}</p>`;
             extrasSummary += `<p>Inside Delivery: ${insideDelivery ? 'Yes' : 'No'}</p>`;
             extrasSummary += `<p>Hazardous/Bio-Hazardous: ${hazardousBio ? 'Yes' : 'No'}</p>`;
@@ -1727,30 +2008,31 @@ input[type="number"].pkg-qty {
             }
 
             try {
-                // --- NEW: Vehicle Mileage Rate Logic ---
+                // Vehicle pricing remains separate from capacity eligibility.
                 const vehicleType = document.getElementById('vehicleType').value;
-                const vehicleSelect = document.getElementById('vehicleType');
-                const vehicleText = vehicleSelect.options[vehicleSelect.selectedIndex].text;
                 let mileageRate = 0;
                 let minimumCharge = 0;
-                let maxWeight = 0;
 
                 switch (vehicleType) {
-                    case 'car': mileageRate = 1.50; minimumCharge = 30; maxWeight = 100; break;
-                    case 'suv': mileageRate = 1.75; minimumCharge = 40; maxWeight = 300; break;
-                    case 'pickup_truck': mileageRate = 2.00; minimumCharge = 50; maxWeight = 1000; break;
-                    case 'cargo_van': mileageRate = 2.25; minimumCharge = 75; maxWeight = 2500; break;
-                    case 'cargo_van_high_roof': mileageRate = 2.75; minimumCharge = 95; maxWeight = 3500; break;
-                    case 'box_truck': mileageRate = 3.50; minimumCharge = 150; maxWeight = 4000; break;
+                    case 'car': mileageRate = 1.50; minimumCharge = 30; break;
+                    case 'suv': mileageRate = 1.75; minimumCharge = 40; break;
+                    case 'pickup_truck': mileageRate = 2.00; minimumCharge = 50; break;
+                    case 'cargo_van': mileageRate = 2.25; minimumCharge = 75; break;
+                    case 'cargo_van_high_roof': mileageRate = 2.75; minimumCharge = 95; break;
+                    case 'box_truck': mileageRate = 3.50; minimumCharge = 150; break;
                     default:
                         quoteResultEl.textContent = 'Error: Please select a valid vehicle type.';
-                        return; // Stop the calculation
+                        return;
                 }
 
-                // --- NEW: Weight Capacity Warning ---
-                if (totalWeight > maxWeight) {
-                    weightWarningEl.textContent = `Warning: The total weight of ${totalWeight.toFixed(1)} lbs exceeds the typical capacity for a ${vehicleText}. Please verify your selection.`;
-                    weightWarningEl.style.display = 'block';
+                const fitGuidance = updateVehicleGuidance(false);
+                if (!fitGuidance?.selectedFit?.fits) {
+                    const fitMessage = fitGuidance?.recommendedVehicle
+                        ? `Select ${VEHICLE_CAPACITIES[fitGuidance.recommendedVehicle].label} or another enabled compatible vehicle.`
+                        : 'Contact dispatch for a custom equipment review.';
+                    showFormMessage(fitMessage);
+                    quoteResultEl.textContent = 'Error: Selected vehicle is not compatible.';
+                    return;
                 }
 
                 let mileageCost = totalMiles * mileageRate;
@@ -1926,6 +2208,9 @@ input[type="number"].pkg-qty {
             const vehicleTypeSelect = document.getElementById('vehicleType');
             const vehicleTypeText = vehicleTypeSelect.value ? vehicleTypeSelect.options[vehicleTypeSelect.selectedIndex].text : 'N/A';
             summaryText += `  Vehicle: ${vehicleTypeText}\n`;
+            const shipmentProfile = buildShipmentProfile(collectPackageDataFromForm());
+            const recommendedVehicle = shipmentProfile ? getVehicleRecommendation(shipmentProfile) : null;
+            summaryText += `  Capacity Recommendation: ${recommendedVehicle ? VEHICLE_CAPACITIES[recommendedVehicle].label : 'Custom dispatch review'}\n`;
             summaryText += `  Pickup Date/Time: ${document.getElementById('pickupDate').value || 'N/A'} ${document.getElementById('pickupTime').value || 'N/A'}\n`;
             const urgencySelect = document.getElementById('urgency');
             const urgencyText = urgencySelect.value ? urgencySelect.options[urgencySelect.selectedIndex].text : 'N/A';
@@ -1968,6 +2253,7 @@ input[type="number"].pkg-qty {
         // ========== STRIPE PAYMENT LINK ==========
         async function handleBookNow() {
             console.log("Initiating Book Now process...");
+            if (!validateStep(1) || !validateStep(2) || !validateStep(3) || !validateStep(4)) return;
             const bookBtn = document.getElementById('bookNowBtn');
             // --- Gather Data ---
             const stopGroups = document.querySelectorAll('.address-group');
