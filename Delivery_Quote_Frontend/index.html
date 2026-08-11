@@ -195,6 +195,63 @@
     div.error-border { outline: 1px dotted red; outline-offset: 2px; border-radius: 4px; }
     /* Small text styling */
     small { font-size: 0.85em; color: #6c757d; }
+    /* Phase 1: wizard progress and navigation structure */
+    .quote-progress {
+      margin: 0 0 25px;
+      padding: 15px 20px;
+      border: 1px solid #dbe3f3;
+      border-radius: 8px;
+      background: #f8faff;
+      scroll-margin-top: 12px;
+    }
+    .quote-progress #stepStatus {
+      margin: 0 0 12px;
+      color: #21409A;
+      font-weight: 700;
+      text-align: center;
+    }
+    .quote-progress ol {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .quote-progress li {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: #6c757d;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+    .quote-progress li span {
+      display: inline-grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border: 2px solid #adb5bd;
+      border-radius: 50%;
+      background: #fff;
+      color: #495057;
+      font-weight: 700;
+    }
+    .quote-progress li.active,
+    .quote-progress li.completed {
+      color: #21409A;
+    }
+    .quote-progress li.active span {
+      border-color: #f15829;
+      background: #f15829;
+      color: #fff;
+    }
+    .quote-progress li.completed span {
+      border-color: #21409A;
+      background: #21409A;
+      color: #fff;
+    }
     /* --- End Styles --- */
   </style>
 </head>
@@ -202,20 +259,18 @@
 
     <h2>Delivery Quote Form</h2>
 
-    <fieldset style="margin-bottom: 25px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #fff;">
-        <legend>Contact Information</legend>
-        <label for="contactName">Contact Name:</label>
-        <input type="text" id="contactName" name="contactName" required />
-        <label for="contactEmail">Email:</label>
-        <input type="email" id="contactEmail" name="contactEmail" required />
-        <label for="contactPhone" class="optional">Phone:</label>
-        <input type="tel" id="contactPhone" name="contactPhone" placeholder="e.g., 123-456-7890" />
-        <label for="contactCompany" class="optional">Company Name:</label>
-        <input type="text" id="contactCompany" name="contactCompany" />
-    </fieldset>
+    <nav id="quoteProgress" class="quote-progress" aria-label="Quote progress">
+      <p id="stepStatus">Step 1 of 4: Route</p>
+      <ol>
+        <li class="active" data-step="1" aria-current="step"><span>1</span><strong>Route</strong></li>
+        <li data-step="2"><span>2</span><strong>Shipment</strong></li>
+        <li data-step="3"><span>3</span><strong>Service</strong></li>
+        <li data-step="4"><span>4</span><strong>Review</strong></li>
+      </ol>
+    </nav>
 
     <div class="form-step active" id="step-1">
-      <h3>Step 1: Stops</h3>
+      <h3>Step 1: Route</h3>
       <p>Enter all stop addresses in order (e.g., Pickup -> Dropoff 1 -> Dropoff 2...). Minimum 2 stops required.</p>
       <div id="addressContainer">
         <div class="address-group">
@@ -239,7 +294,7 @@
           </div>
         </div>
         <div class="address-group">
-           <button type="button" class="remove-button" onclick="removeGroup(this)">Remove</button>
+           <button type="button" class="remove-button" onclick="removeGroup(this)" style="display:none;">Remove</button>
            <label for="stopAddr2">Stop 2 Address:</label>
            <input type="text" id="stopAddr2" class="address-input stop-addr" placeholder="Enter address for stop 2" required />
            <label for="loadUnload2">Load/Unload Responsibility:</label>
@@ -261,12 +316,12 @@
       </div>
       <button type="button" class="secondary" onclick="addAddress()">Add Another Stop</button>
       <div>
-        <button type="button" class="primary" onclick="goToNextStep(1)">Next</button>
+        <button type="button" class="primary" onclick="goToNextStep(1)">Continue to Shipment</button>
       </div>
     </div>
 
     <div class="form-step" id="step-2">
-      <h3>Step 2: Package Details</h3>
+      <h3>Step 2: Shipment</h3>
       <p>Enter quantity, description, weight (per item), and dimensions (per item) for each type of package. Max total weight 4000 lbs.</p>
       <div id="packageContainer">
         <div class="package-group">
@@ -298,13 +353,13 @@
       </div>
       <button type="button" class="secondary" onclick="addPackage()">Add Another Package</button>
       <div>
-        <button type="button" class="secondary" onclick="goToPrevStep(2)">Previous</button>
-        <button type="button" class="primary" onclick="goToNextStep(2)">Next</button>
+        <button type="button" class="secondary" onclick="goToPrevStep(2)">Back to Route</button>
+        <button type="button" class="primary" onclick="goToNextStep(2)">Continue to Service</button>
       </div>
     </div>
 
     <div class="form-step" id="step-3">
-      <h3>Step 3: Service Details</h3>
+      <h3>Step 3: Schedule &amp; Services</h3>
       <label for="vehicleType">Select Vehicle Type:</label>
       <!-- UPDATED VEHICLE LIST -->
       <select id="vehicleType" required>
@@ -346,19 +401,30 @@
         <input type="checkbox" id="extraLaborer" /> <label for="extraLaborer" class="inline-label">Extra Laborer</label>
       </div>
       <div>
-        <button type="button" class="secondary" onclick="goToPrevStep(3)">Previous</button>
-        <button type="button" class="primary" onclick="goToNextStep(3)">Next</button>
+        <button type="button" class="secondary" onclick="goToPrevStep(3)">Back to Shipment</button>
+        <button type="button" class="primary" onclick="goToNextStep(3)">Continue to Review</button>
       </div>
     </div>
 
     <div class="form-step" id="step-4">
-      <h3>Step 4: Review & Quote</h3>
-      <p>Review your details below. Click "Calculate Quote" to see the estimated price.</p>
+      <h3>Step 4: Contact, Review &amp; Quote</h3>
+      <p>Enter your contact information, review the delivery details, and calculate the final estimate.</p>
+    <fieldset style="margin-bottom: 25px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #fff;">
+        <legend>Contact Information</legend>
+        <label for="contactName">Contact Name:</label>
+        <input type="text" id="contactName" name="contactName" required />
+        <label for="contactEmail">Email:</label>
+        <input type="email" id="contactEmail" name="contactEmail" required />
+        <label for="contactPhone" class="optional">Phone:</label>
+        <input type="tel" id="contactPhone" name="contactPhone" placeholder="e.g., 123-456-7890" />
+        <label for="contactCompany" class="optional">Company Name:</label>
+        <input type="text" id="contactCompany" name="contactCompany" />
+    </fieldset>
       <div class="summary-section" id="summaryContainer">
           </div>
       <div id="weightWarning"></div>
       <h3 id="quoteResult"></h3>
-      <button type="button" class="secondary" onclick="goToPrevStep(4)">Previous</button>
+      <button type="button" class="secondary" onclick="goToPrevStep(4)">Back to Service</button>
       <button type="button" class="primary" onclick="calculateQuote()">Calculate Quote</button>
       <button type="button" class="secondary" id="downloadSummaryBtn" style="display:none;" onclick="downloadSummary()">Download Summary</button>
       <button type="button" class="primary" id="bookNowBtn" style="display:none;" onclick="handleBookNow()">Proceed to Payment</button>
@@ -373,6 +439,11 @@
         let distanceService;
         let geocoder;
         let calculatedTotalMiles = 0;
+        const stepLabels = ['Route', 'Shipment', 'Service', 'Review'];
+
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
 
         // --- Initialization ---
         function initializeMapsServices() {
@@ -381,7 +452,8 @@
                     distanceService = new google.maps.DistanceMatrixService();
                     geocoder = new google.maps.Geocoder();
                     initAutocompleteForExisting();
-                    showStep(currentStep);
+                    showStep(currentStep, false);
+                    requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
                     console.log("Google Maps Services Initialized.");
                     return true;
                 } catch (error) {
@@ -398,6 +470,7 @@
             }
         }
         window.addEventListener('load', () => {
+           window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
            if (typeof google === 'object' && typeof google.maps === 'object') {
                if (!distanceService) {
                    console.log("Initializing Maps Services via window.load.");
@@ -413,12 +486,29 @@
 
 
         // ========== STEP NAVIGATION & VALIDATION ==========
-        function showStep(stepNumber) {
+        function updateProgress(stepNumber) {
+          document.querySelectorAll('#quoteProgress [data-step]').forEach(item => {
+              const itemStep = Number(item.dataset.step);
+              item.classList.toggle('active', itemStep === stepNumber);
+              item.classList.toggle('completed', itemStep < stepNumber);
+              if (itemStep === stepNumber) item.setAttribute('aria-current', 'step');
+              else item.removeAttribute('aria-current');
+          });
+          const stepStatus = document.getElementById('stepStatus');
+          if (stepStatus) stepStatus.textContent = `Step ${stepNumber} of ${totalSteps}: ${stepLabels[stepNumber - 1]}`;
+        }
+
+        function showStep(stepNumber, shouldScroll = true) {
+          if (!Number.isInteger(stepNumber) || stepNumber < 1 || stepNumber > totalSteps) return;
           document.querySelectorAll('.form-step').forEach(step => step.classList.remove('active'));
           const currentStepDiv = document.getElementById(`step-${stepNumber}`);
           if (currentStepDiv) {
               currentStepDiv.classList.add('active');
-              currentStepDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              currentStep = stepNumber;
+              updateProgress(stepNumber);
+              if (shouldScroll) {
+                  document.getElementById('quoteProgress')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
           }
         }
         function validateStep(stepNumber) {
@@ -479,28 +569,12 @@
              return isValid;
          }
         function goToNextStep(stepNumber) {
-           if (stepNumber === 1) {
-               let contactValid = true;
-               document.querySelectorAll('#contactName, #contactEmail').forEach(input => {
-                   input.style.borderColor = '#ccc';
-                   if (!input.value || !input.value.trim()) { contactValid = false; input.style.borderColor = 'red';
-                   } else if (input.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value)) {
-                       contactValid = false; input.style.borderColor = 'red';
-                   }
-               });
-               if (!contactValid) {
-                   alert('Please fill in the required Contact Name and provide a valid Email before proceeding.');
-                   document.querySelector('fieldset').scrollIntoView({ behavior: 'smooth', block: 'start' }); return;
-               }
-           }
-           if (!validateStep(stepNumber)) return;
-          currentStep = stepNumber + 1;
-          showStep(currentStep);
+          if (!validateStep(stepNumber)) return;
+          showStep(stepNumber + 1);
           if (currentStep === 4) buildSummary();
         }
         function goToPrevStep(stepNumber) {
-          currentStep = stepNumber - 1;
-          showStep(currentStep);
+          showStep(stepNumber - 1);
         }
 
 
@@ -661,13 +735,18 @@
         function buildSummary() {
           const summaryDiv = document.getElementById('summaryContainer');
           summaryDiv.innerHTML = '';
-          const contactName = document.getElementById('contactName')?.value || 'N/A';
-          const contactEmail = document.getElementById('contactEmail')?.value || 'N/A';
-          const contactPhone = document.getElementById('contactPhone')?.value || '';
-          const contactCompany = document.getElementById('contactCompany')?.value || '';
-           let contactSummary = `<h4>Contact Information</h4><p>Name: ${contactName}</p><p>Email: ${contactEmail}</p>`;
-            if (contactPhone) contactSummary += `<p>Phone: ${contactPhone}</p>`;
-            if (contactCompany) contactSummary += `<p>Company: ${contactCompany}</p>`;
+          const contactName = document.getElementById('contactName')?.value.trim() || '';
+          const contactEmail = document.getElementById('contactEmail')?.value.trim() || '';
+          const contactPhone = document.getElementById('contactPhone')?.value.trim() || '';
+          const contactCompany = document.getElementById('contactCompany')?.value.trim() || '';
+          let contactSummary = '<h4>Contact Information</h4>';
+          if (contactName || contactEmail || contactPhone || contactCompany) {
+              contactSummary += `<p>Name: ${contactName || 'N/A'}</p><p>Email: ${contactEmail || 'N/A'}</p>`;
+              if (contactPhone) contactSummary += `<p>Phone: ${contactPhone}</p>`;
+              if (contactCompany) contactSummary += `<p>Company: ${contactCompany}</p>`;
+          } else {
+              contactSummary += '<p>Complete the contact information above, then calculate your quote.</p>';
+          }
           const stops = document.querySelectorAll('.address-group');
           let addressSummary = '<h4>Stops</h4>';
           if (stops.length < 2) { addressSummary += '<p>Please enter at least 2 stops.</p>'; }
@@ -763,7 +842,7 @@
 
         // ========== QUOTE CALCULATION & DATA LOGGING TO BACKEND ==========
         async function calculateQuote() {
-             if (!validateStep(1) || !validateStep(2) || !validateStep(3)) { return; }
+             if (!validateStep(1) || !validateStep(2) || !validateStep(3) || !validateStep(4)) { return; }
              buildSummary(); // Call buildSummary to update the display before calculation
             const quoteResultEl = document.getElementById('quoteResult');
             const milesSummaryEl = document.getElementById('summary-miles');
