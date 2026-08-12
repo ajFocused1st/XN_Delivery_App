@@ -5,6 +5,7 @@ const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const cors = require('cors');
 const { Pool } = require('pg'); // PostgreSQL client for Node.js
+const { sendQuoteNotification } = require('./pushover');
 
 const app = express();
 
@@ -533,6 +534,7 @@ async function logLeadDataToDB(leadData, logType = "CalculatedQuote") {
   try {
     const result = await pool.query(insertQuery, values);
     console.log(`Lead data (Type: ${logType}) successfully inserted into PostgreSQL DB with ID: ${result.rows[0].id}`);
+    return result.rows[0];
   } catch (dbError) {
     console.error(`Error inserting lead data into PostgreSQL DB (Type: ${logType}):`, dbError);
     throw dbError; // Re-throw the error to be handled by the calling endpoint
@@ -590,7 +592,18 @@ app.post('/log-calculated-quote', async (req, res) => {
   };
 
   try {
-    await logLeadDataToDB(verifiedLeadData, 'CalculatedQuote');
+    const savedLead = await logLeadDataToDB(verifiedLeadData, 'CalculatedQuote');
+
+    sendQuoteNotification(verifiedLeadData, savedLead?.id)
+      .then(result => {
+        if (result.sent) {
+          console.log(`Pushover quote notification queued for lead ID: ${savedLead?.id}`);
+        }
+      })
+      .catch(notificationError => {
+        console.error(`Pushover quote notification failed for lead ID: ${savedLead?.id}`, notificationError.message);
+      });
+
     return res.status(200).json({
       status: 'success',
       message: 'Quote data verified and logged.',
