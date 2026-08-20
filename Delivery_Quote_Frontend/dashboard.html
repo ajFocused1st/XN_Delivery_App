@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Xpedite Now LLC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-blue': '#21409A',
+                        'brand-orange': '#F15829',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- Header -->
+    <header class="bg-white shadow-md">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="index.html">
+                        <img class="h-10 w-auto" src="assets/images/xpedite-now-logo.png" alt="Xpedite Now LLC Logo">
+                    </a>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span id="nav-user-name" class="hidden text-sm text-gray-500"></span>
+                    <button id="logout-button" class="text-sm font-medium text-gray-600 hover:text-brand-orange focus:outline-none">
+                        Log Out
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+
+        <div class="mb-8">
+            <div class="flex flex-wrap items-center gap-3">
+                <h1 id="welcome-header" class="text-3xl font-bold text-gray-800">Welcome!</h1>
+                <span id="role-badge" class="hidden px-3 py-1 text-xs font-semibold uppercase tracking-wider rounded-full bg-brand-blue text-white"></span>
+            </div>
+            <p id="role-subheader" class="mt-1 text-gray-600">Loading your dashboard...</p>
+        </div>
+
+        <div id="saved-quote-notification" class="hidden bg-brand-blue bg-opacity-10 border-l-4 border-brand-blue text-brand-blue p-4 rounded-r-lg mb-6" role="alert">
+            <div class="flex">
+                <div class="py-1"><svg class="h-6 w-6 mr-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                <div>
+                    <p class="font-bold">Ready to book your saved quote?</p>
+                    <p id="saved-quote-summary" class="text-sm">We've loaded the delivery details you entered earlier.</p>
+                    <button id="book-saved-quote-btn" class="mt-2 text-sm font-semibold text-white bg-brand-orange hover:bg-opacity-90 px-4 py-2 rounded-lg">Book Now</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="dashboard-content" class="bg-white p-6 rounded-2xl shadow-lg">
+            <div id="customer-dashboard" class="hidden space-y-6">
+                <section class="grid gap-6 md:grid-cols-2">
+                    <article class="border border-gray-200 rounded-xl p-6">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h2>
+                        <div class="space-y-3">
+                            <button type="button" data-action="new-delivery" class="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-white bg-brand-orange hover:bg-opacity-90 rounded-lg transition">
+                                Request a New Delivery
+                                <span aria-hidden="true">&rarr;</span>
+                            </button>
+                            <button type="button" data-action="view-quotes" class="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-brand-blue bg-blue-50 hover:bg-blue-100 rounded-lg transition">
+                                Review Saved Quotes
+                                <span aria-hidden="true">&rarr;</span>
+                            </button>
+                            <button type="button" data-action="support" class="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition">
+                                Contact Dispatcher
+                                <span aria-hidden="true">&rarr;</span>
+                            </button>
+                        </div>
+                    </article>
+                    <article class="border border-gray-200 rounded-xl p-6">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4">Delivery Snapshot</h2>
+                        <ul class="space-y-3 text-sm text-gray-600">
+                            <li><span class="font-semibold text-gray-900">Active Deliveries:</span> <span data-customer-active>0</span></li>
+                            <li><span class="font-semibold text-gray-900">Pending Quotes:</span> <span data-customer-quotes>0</span></li>
+                            <li><span class="font-semibold text-gray-900">Last Quote:</span> <span data-customer-last>None yet</span></li>
+                        </ul>
+                    </article>
+                </section>
+                <section class="border border-gray-200 rounded-xl p-6">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4">Need Help Fast?</h2>
+                    <p class="text-sm text-gray-600">Our dispatch team is available daily from 6AM – 10PM ET. Call <a href="tel:804-495-1581" class="text-brand-blue font-semibold">804-495-1581</a> or email <a href="mailto:dispatch@xpeditenow.com" class="text-brand-blue font-semibold">dispatch@xpeditenow.com</a>.</p>
+                </section>
+            </div>
+
+            <div id="driver-dashboard" class="hidden space-y-6">
+                <section class="grid gap-6 md:grid-cols-2">
+                    <article class="border border-gray-200 rounded-xl p-6">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4">Today's Assignments</h2>
+                        <ul id="driver-assignments" class="space-y-3 text-sm text-gray-600">
+                            <li>No active assignments yet. Set your availability to get matched with jobs.</li>
+                        </ul>
+                    </article>
+                    <article class="border border-gray-200 rounded-xl p-6">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h2>
+                        <div class="space-y-3">
+                            <button type="button" data-action="view-jobs" class="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-white bg-brand-blue hover:bg-opacity-90 rounded-lg transition">
+                                View Available Jobs
+                                <span aria-hidden="true">&rarr;</span>
+                            </button>
+                            <button type="button" data-action="update-availability" class="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-brand-orange bg-orange-50 hover:bg-orange-100 rounded-lg transition">
+                                Update Availability
+                                <span aria-hidden="true">&rarr;</span>
+                            </button>
+                            <button type="button" data-action="driver-support" class="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition">
+                                Message Dispatch
+                                <span aria-hidden="true">&rarr;</span>
+                            </button>
+                        </div>
+                    </article>
+                </section>
+                <section class="border border-gray-200 rounded-xl p-6">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4">Safety & Compliance</h2>
+                    <p class="text-sm text-gray-600">Remember to have proof of insurance and photo ID on hand. Tap <a href="mailto:drivers@xpeditenow.com" class="text-brand-blue font-semibold">drivers@xpeditenow.com</a> if you need the onboarding packet resent.</p>
+                </section>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = window?.XNAuth?.requireAuth?.({ redirectTo: 'index.html' });
+            if (!user) {
+                return;
+            }
+
+            personalizeDashboard(user);
+            attachGlobalHandlers(user);
+            checkForSavedQuote();
+        });
+
+        function personalizeDashboard(user) {
+            const welcomeHeader = document.getElementById('welcome-header');
+            const roleSubheader = document.getElementById('role-subheader');
+            const roleBadge = document.getElementById('role-badge');
+            const navUserName = document.getElementById('nav-user-name');
+            const customerDashboard = document.getElementById('customer-dashboard');
+            const driverDashboard = document.getElementById('driver-dashboard');
+
+            const roleName = user.role === 'driver' ? 'Driver' : 'Customer';
+            welcomeHeader.textContent = `Welcome back, ${user.name}!`;
+            roleSubheader.textContent = user.role === 'driver'
+                ? 'Here is what is lined up for you today.'
+                : 'Manage your deliveries and request new service.';
+            roleBadge.textContent = roleName;
+            roleBadge.classList.remove('hidden');
+            navUserName.textContent = user.email;
+            navUserName.classList.remove('hidden');
+            document.title = `${roleName} Dashboard - Xpedite Now LLC`;
+            window.location.hash = `#${user.role}`;
+
+            customerDashboard.classList.add('hidden');
+            driverDashboard.classList.add('hidden');
+
+            if (user.role === 'driver') {
+                driverDashboard.classList.remove('hidden');
+                populateDriverAssignments();
+            } else {
+                customerDashboard.classList.remove('hidden');
+                populateCustomerSnapshot();
+            }
+        }
+
+        function attachGlobalHandlers(user) {
+            const logoutButton = document.getElementById('logout-button');
+            if (logoutButton) {
+                logoutButton.addEventListener('click', () => {
+                    window.XNAuth.clearUser();
+                    window.location.href = 'index.html';
+                });
+            }
+
+            if (user.role === 'driver') {
+                bindButton('view-jobs', () => alert('Job board integration coming soon.'));
+                bindButton('update-availability', () => alert('Availability update coming soon.'));
+                bindButton('driver-support', () => window.location.href = 'mailto:drivers@xpeditenow.com');
+            } else {
+                bindButton('new-delivery', () => window.location.href = 'quote.html');
+                bindButton('view-quotes', () => window.location.href = 'quote.html#history');
+                bindButton('support', () => window.location.href = 'mailto:dispatch@xpeditenow.com');
+            }
+
+            const savedQuoteButton = document.getElementById('book-saved-quote-btn');
+            if (savedQuoteButton) {
+                savedQuoteButton.addEventListener('click', handleSavedQuoteCheckout);
+            }
+        }
+
+        function bindButton(action, handler) {
+            const button = document.querySelector(`[data-action="${action}"]`);
+            if (button) {
+                button.addEventListener('click', handler);
+            }
+        }
+
+        function populateCustomerSnapshot() {
+            const pendingQuoteRaw = sessionStorage.getItem('pendingQuote');
+            const activeSpan = document.querySelector('[data-customer-active]');
+            const pendingSpan = document.querySelector('[data-customer-quotes]');
+            const lastQuoteSpan = document.querySelector('[data-customer-last]');
+
+            if (activeSpan) activeSpan.textContent = '0';
+            if (pendingSpan) pendingSpan.textContent = pendingQuoteRaw ? '1 (awaiting checkout)' : '0';
+
+            if (lastQuoteSpan) {
+                if (pendingQuoteRaw) {
+                    try {
+                        const quote = JSON.parse(pendingQuoteRaw);
+                        const amount = typeof quote.calculatedQuote === 'number'
+                            ? quote.calculatedQuote.toFixed(2)
+                            : Number(quote.calculatedQuote || 0).toFixed(2);
+                        lastQuoteSpan.textContent = `$${amount} • ${quote.stopsData?.length || 0} stops`;
+                    } catch (error) {
+                        console.warn('Could not parse saved quote payload:', error);
+                        lastQuoteSpan.textContent = 'Awaiting details';
+                    }
+                } else {
+                    lastQuoteSpan.textContent = 'None yet';
+                }
+            }
+        }
+
+        function populateDriverAssignments() {
+            const assignmentsList = document.getElementById('driver-assignments');
+            if (!assignmentsList) return;
+            const mockData = JSON.parse(sessionStorage.getItem('mockDriverAssignments') || '[]');
+            if (!mockData.length) {
+                assignmentsList.innerHTML = '<li>No active assignments yet. Set your availability to get matched with jobs.</li>';
+                return;
+            }
+
+            assignmentsList.innerHTML = mockData.map((job) => {
+                const pickup = job.pickup || 'TBD';
+                const dropoff = job.dropoff || 'TBD';
+                const eta = job.eta || 'ASAP';
+                return `<li class="border border-gray-200 rounded-lg px-4 py-3"><span class="font-semibold text-gray-900">${pickup}</span> to <span class="font-semibold text-gray-900">${dropoff}</span><br><span class="text-xs text-gray-500">Pickup: ${eta}</span></li>`;
+            }).join('');
+        }
+
+        function checkForSavedQuote() {
+            const savedQuoteRaw = sessionStorage.getItem('pendingQuote');
+            const notification = document.getElementById('saved-quote-notification');
+            if (!savedQuoteRaw || !notification) {
+                return;
+            }
+
+            try {
+                const quote = JSON.parse(savedQuoteRaw);
+                const summary = document.getElementById('saved-quote-summary');
+                const amount = typeof quote.calculatedQuote === 'number'
+                    ? quote.calculatedQuote.toFixed(2)
+                    : Number(quote.calculatedQuote || 0).toFixed(2);
+                const stops = Array.isArray(quote.stopsData) ? quote.stopsData.length : 0;
+                summary.textContent = `Quote for ${stops} stops totaling $${amount}.`;
+                notification.classList.remove('hidden');
+            } catch (error) {
+                console.warn('Failed to parse pending quote from session storage:', error);
+                sessionStorage.removeItem('pendingQuote');
+            }
+        }
+
+        function handleSavedQuoteCheckout() {
+            const savedQuoteRaw = sessionStorage.getItem('pendingQuote');
+            if (!savedQuoteRaw) {
+                return;
+            }
+            sessionStorage.setItem('resumeQuote', savedQuoteRaw);
+            sessionStorage.removeItem('pendingQuote');
+            window.location.href = 'quote.html#resume';
+        }
+    </script>
+</body>
+</html>

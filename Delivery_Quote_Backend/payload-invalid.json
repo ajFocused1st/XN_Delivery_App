@@ -1,0 +1,33 @@
+{
+  "contactDetails": {
+    "name": "Broken Customer",
+    "email": "invalid-email",
+    "phone": "555-123-4567",
+    "company": "Buggy Co"
+  },
+  "stopsData": [],
+  "packagesData": [
+    {
+      "qty": -5,
+      "desc": "",
+      "weight": "heavy",
+      "length": -1,
+      "width": -1,
+      "height": -1,
+      "unit": ""
+    }
+  ],
+  "serviceDetails": {
+    "vehicleType": "",
+    "pickupDate": "",
+    "pickupTime": "",
+    "urgency": "",
+    "specialNotes": "<script>alert(1)</script>",
+    "insideDelivery": "notabool",
+    "hazardousBio": "nope",
+    "fragileHandling": "true",
+    "extraLaborer": null
+  },
+  "totalMiles": -10,
+  "calculatedQuote": -50
+}

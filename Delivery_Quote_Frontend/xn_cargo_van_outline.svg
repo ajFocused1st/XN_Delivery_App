@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="600" viewBox="0 0 1024 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Cargo Van Outline (white strokes, scalable) -->
+  <g stroke="#FFFFFF" stroke-width="18" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Van body -->
+    <path d="M120 360 L120 260 C120 230 145 208 175 208 H610 C655 208 702 240 720 280 L780 360 H120 Z"/>
+    <!-- Roof line -->
+    <path d="M180 208 L610 208"/>
+    <!-- Front cabin slope -->
+    <path d="M610 208 C660 210 710 240 730 280"/>
+    <!-- Ground baseline -->
+    <path d="M110 360 H790"/>
+    <!-- Front bumper -->
+    <path d="M790 360 H860 C875 360 890 372 892 388 L896 420 H790"/>
+    <!-- Door lines -->
+    <path d="M260 360 V230"/>
+    <path d="M430 360 V230"/>
+    <!-- Windows -->
+    <rect x="200" y="230" width="200" height="70" rx="6"/>
+    <rect x="420" y="230" width="170" height="70" rx="6"/>
+    <!-- Wheels -->
+    <circle cx="260" cy="420" r="58"/>
+    <circle cx="640" cy="420" r="58"/>
+    <!-- Wheel hubs -->
+    <circle cx="260" cy="420" r="24"/>
+    <circle cx="640" cy="420" r="24"/>
+  </g>
+</svg>

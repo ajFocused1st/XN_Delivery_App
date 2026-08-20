@@ -1,0 +1,52 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checkout Success</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background:#f7fafc; color:#1f2937; }
+    .wrap { max-width: 720px; margin: 8vh auto; background:#fff; border-radius:12px; padding:32px; box-shadow: 0 6px 24px rgba(0,0,0,.08); }
+    h1 { margin: 0 0 8px; color: #065f46; }
+    .note { color:#374151; margin: 8px 0 16px; }
+    .sim { color:#92400e; background:#fffbeb; border:1px solid #f59e0b; padding:8px 12px; border-radius:8px; display:inline-block; margin: 8px 0 16px; }
+    .actions { display:flex; gap:12px; margin-top: 16px; flex-wrap: wrap; }
+    a.btn { text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:600; display:inline-block; }
+    .primary { background:#10b981; color:#fff; }
+    .secondary { background:#1f2937; color:#fff; }
+    .muted { color:#6b7280; margin-top:12px; }
+    .count { font-variant-numeric: tabular-nums; font-weight:700; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Payment Successful</h1>
+    <p class="note">Thank you! Your payment has been processed.</p>
+    <p class="note">A confirmation will be sent to: <strong id="emailTarget">your email address</strong>.</p>
+    <div id="simFlag" class="sim" style="display:none;">Simulation mode: this was a test checkout.</div>
+    <div class="actions">
+      <a class="btn primary" id="anotherQuote" href="quote.html">Get Another Quote</a>
+      <a class="btn secondary" id="goDashboard" href="dashboard.html">Go to Dashboard</a>
+    </div>
+    <p class="muted">No action needed — redirecting to dashboard in <span class="count" id="count">20</span> seconds…</p>
+  </div>
+  <script>
+    (function(){
+      const params = new URLSearchParams(location.search);
+      const email = params.get('email');
+      const simulated = params.get('simulated');
+      const emailEl = document.getElementById('emailTarget');
+      if (email) emailEl.textContent = email;
+      if (simulated === '1' || simulated === 'true') {
+        document.getElementById('simFlag').style.display = 'inline-block';
+      }
+      const countEl = document.getElementById('count');
+      let left = 20;
+      const timer = setInterval(() => {
+        left -= 1; countEl.textContent = String(left);
+        if (left <= 0) { clearInterval(timer); location.href = 'dashboard.html'; }
+      }, 1000);
+    })();
+  </script>
+</body>
+</html>

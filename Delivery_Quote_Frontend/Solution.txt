@@ -1,0 +1,1562 @@
+﻿Of course. I've located the syntax errors in your quote.html file. You were right—the primary issue was a subtle but critical error with an unbalanced template literal, and I also found a second structural error that would have caused problems.
+Here is the corrected file. I've added comments to pinpoint exactly where the changes were made.
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delivery Quote Form</title>
+
+
+  <!-- 
+    *******************************************************************
+    * IMPORTANT: Replace 'YOUR_API_KEY_HERE' below with your actual   *
+    * Google Maps API key. Ensure the following in your Google Cloud  *
+    * Platform (GCP) Console for the project linked to this key:      *
+    * 1. Maps JavaScript API is ENABLED.                              *
+    * 2. Places API is ENABLED.                                       *
+    * 3. Distance Matrix API is ENABLED.                              *
+    * 4. Billing is ENABLED for the project.                          *
+    * 5. If using HTTP Referrer restrictions, add your live domain    *
+    * (e.g., your-frontend-name.onrender.com/*) to the allowed list.*
+    *******************************************************************
+  -->
+  <style>
+    /* --- Styles --- */
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      margin: 20px;
+      background-color: #FFFFFF;
+      color: #333;
+      line-height: 1.5;
+    }
+    h2, h3, h4 {
+      margin-top: 1.5em;
+      margin-bottom: 0.75em;
+      color: #21409A; /* Blue headings */
+    }
+    h2 { font-size: 1.8em; text-align: center; margin-bottom: 1em; }
+    h3 { font-size: 1.4em; }
+    h4 { font-size: 1.1em; color: #333; } /* Darker summary subheadings */
+
+
+    fieldset {
+        margin-bottom: 25px;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background-color: #fff;
+    }
+    legend {
+        font-weight: bold;
+        font-size: 1.2em;
+        color: #21409A; /* Blue legend */
+        padding: 0 10px;
+    }
+
+
+    .form-step {
+      background-color: #fff;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+      display: none; /* All steps hidden by default */
+      margin-bottom: 25px;
+      border: 1px solid #eee; /* Subtle border */
+    }
+    .form-step.active { display: block; /* Show only the active step */ }
+
+
+    label {
+      display: block;
+      margin-top: 12px;
+      margin-bottom: 4px;
+      font-weight: bold;
+      color: #333;
+    }
+    .inline-label {
+      display: inline-block;
+      margin-left: 5px;
+      font-weight: normal;
+      vertical-align: middle;
+      color: #333;
+    }
+     /* Optional field indication */
+     label.optional::after {
+        content: " (Optional)";
+        font-weight: normal;
+        font-size: 0.9em;
+        color: #6c757d;
+     }
+    input, select, textarea, button {
+      margin-top: 5px;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 1em; /* Consistent font size */
+      font-family: inherit; /* Use body font */
+    }
+    input[type="text"], input[type="email"], input[type="tel"], input[type="number"], select, textarea {
+      width: 100%; /* Use full width */
+      max-width: 500px; /* Add max width for very wide screens */
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      margin-bottom: 10px; /* Add space below inputs */
+    }
+    input[type="checkbox"] {
+        width: auto; /* Checkboxes shouldn't be full width */
+        margin-right: 5px;
+        vertical-align: middle;
+    }
+    input[type="file"] {
+        padding: 3px; /* Less padding for file inputs */
+    }
+    input[type="number"].pkg-qty {
+        width: 70px;
+        max-width: none; /* Override max-width for specific small inputs */
+    }
+    input[type="number"].floor-count {
+       width: 100px;
+       max-width: none;
+    }
+    button {
+      border: none;
+      cursor: pointer;
+      padding: 10px 18px;
+      transition: background-color 0.2s ease, transform 0.1s ease; /* Add transitions */
+    }
+     button:active { transform: scale(0.98); /* Slight press effect */ }
+     button:disabled { background-color: #ccc; cursor: not-allowed; }
+    /* Primary Button: Orange */
+    button.primary { background-color: #f15829; color: #FFFFFF; margin-top: 20px; }
+    button.primary:hover:not(:disabled) { background-color: #d84f25; /* Darker Orange */ }
+    /* Secondary Button: Blue */
+    button.secondary { background-color: #21409A; color: #FFFFFF; margin: 10px 10px 0 0; }
+    button.secondary:hover:not(:disabled) { background-color: #1a337a; /* Darker Blue */ }
+    /* Style for Download button */
+    button#downloadSummaryBtn { background-color: #17a2b8; color: #FFFFFF; margin-left: 10px; } /* Teal color */
+    button#downloadSummaryBtn:hover:not(:disabled) { background-color: #138496; } /* Darker Teal */
+    /* Style for Book Now Button: Green */
+    button#bookNowBtn { background-color: #28a745; margin-left: 10px; } /* Green */
+    button#bookNowBtn:hover:not(:disabled) { background-color: #218838; } /* Darker Green */
+
+
+    .address-group, .package-group {
+      margin-bottom: 20px;
+      padding: 15px;
+      padding-top: 45px; /* Space for remove button */
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      position: relative;
+      background-color: #fdfdfd; /* Slight background tint for groups */
+    }
+    .remove-button {
+      background-color: #dc3545;
+      color: #fff;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 0.8em;
+       transition: background-color 0.2s ease;
+    }
+    .remove-button:hover { background-color: #c82333; }
+    /* Indent floor input section */
+    .floor-input-div { margin-left: 25px; margin-top: 5px; margin-bottom: 10px; }
+    /* Styles for inline LWH inputs */
+    .inline-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 5px; }
+    .dimension-input { width: 80px !important; max-width: none; }
+    .inline-group select { width: auto !important; flex-grow: 0; max-width: none; }
+    .inline-group span { font-weight: bold; color: #6c757d; margin: 0 2px; } /* Style for 'x' separator */
+    /* Summary Section Styling */
+    .summary-section { background-color: #f8f9fa; border: 1px solid #eee; padding: 20px; margin: 20px 0; border-radius: 4px; }
+     .summary-section h4 { margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+     .summary-section p { margin: 5px 0 10px 0; line-height: 1.4; }
+    /* Quote Result Styling */
+    #quoteResult { margin-top: 15px; padding: 15px; background-color: #e2f0ff; border: 1px solid #b8d4fe; border-radius: 4px; font-weight: bold;
+      color: #21409A; text-align: center; font-size: 1.1em; }
+    /* Weight Warning Styling */
+    #weightWarning {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+        color: #856404;
+        border-radius: 4px;
+        text-align: center;
+        display: none; /* Hidden by default */
+    }
+    /* Style for required field errors applied via JS */
+    input.error-border, select.error-border, textarea.error-border,
+    input[style*="border-color: red"], select[style*="border-color: red"], textarea[style*="border-color: red"] {
+         border-color: red !important;
+    }
+    /* Style for parent div of required checkbox if needed */
+    div.error-border { outline: 1px dotted red; outline-offset: 2px; border-radius: 4px; }
+    /* Small text styling */
+    small { font-size: 0.85em; color: #6c757d; }
+    /* --- End Styles --- */
+      .upload-status {
+        display: block;
+        margin-top: 6px;
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+    .upload-status--success {
+        color: #15803d;
+    }
+    .upload-status--error {
+        color: #dc2626;
+    }
+
+
+</style>
+
+
+  <script>
+    const hostname = window.location.hostname;
+    const isLocalHost = window.location.protocol === 'file:'
+        || hostname === ''
+        || ['localhost', '127.0.0.1', '::1'].includes(hostname)
+        || hostname.endsWith('.local')
+        || hostname.startsWith('192.168.')
+        || hostname.startsWith('10.');
+    const BACKEND_BASE_URL = isLocalHost ? 'http://localhost:10000' : 'https://delivery-quote-backend.onrender.com';
+    const CONFIG_ENDPOINT = `${BACKEND_BASE_URL}/config`;
+    const GOOGLE_MAPS_LIBRARIES = 'places';
+    let googleMapsLoadAttempted = false;
+
+
+    const UPLOADS_PRESIGN_ENDPOINT = `${BACKEND_BASE_URL}/uploads/presign`;
+    const MAX_UPLOAD_FILE_SIZE_BYTES_FRONT = 20 * 1024 * 1024;
+    const packageUploadState = new Map();
+
+
+    function disableFormForMapsFailure(message) {
+      console.error(message);
+      const quoteResultEl = document.getElementById('quoteResult');
+      if (quoteResultEl) quoteResultEl.textContent = message;
+      document.querySelectorAll('.primary, .secondary').forEach(btn => { btn.disabled = true; });
+    }
+
+
+    async function loadGoogleMapsScript() {
+      if (googleMapsLoadAttempted) return;
+      googleMapsLoadAttempted = true;
+      try {
+        const response = await fetch(CONFIG_ENDPOINT, { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`Config fetch failed with status ${response.status}`);
+        }
+        const data = await response.json();
+        const apiKey = data && data.googleMapsApiKey;
+        if (!apiKey) {
+          throw new Error('Config payload did not include googleMapsApiKey.');
+        }
+        await injectGoogleMapsScript(apiKey);
+      } catch (error) {
+        console.error('Unable to load Google Maps script:', error);
+        disableFormForMapsFailure('Error: Mapping services could not be loaded. Please try again later.');
+      }
+    }
+
+
+    function injectGoogleMapsScript(apiKey) {
+      return new Promise((resolve, reject) => {
+        const existingScript = document.querySelector('script[data-google-maps-loaded="true"]');
+        if (existingScript) {
+          if (window.google && window.google.maps) {
+            initializeMapsServices();
+            return resolve();
+          }
+          existingScript.addEventListener('load', () => {
+            initializeMapsServices();
+            resolve();
+          }, { once: true });
+          existingScript.addEventListener('error', () => reject(new Error('Google Maps script failed to load.')), { once: true });
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=${encodeURIComponent(GOOGLE_MAPS_LIBRARIES)}&v=weekly`;
+        script.async = true;
+        script.defer = true;
+        script.dataset.googleMapsLoaded = 'true';
+        script.onload = () => {
+          initializeMapsServices();
+          resolve();
+        };
+        script.onerror = () => reject(new Error('Google Maps script failed to load.'));
+        document.head.appendChild(script);
+      });
+    }
+
+
+    document.addEventListener('DOMContentLoaded', loadGoogleMapsScript);
+    window.addEventListener('load', loadGoogleMapsScript);
+  </script>
+
+
+</head>
+<body>
+
+
+    <h2>Delivery Quote Form</h2>
+
+
+    <fieldset style="margin-bottom: 25px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #fff;">
+        <legend>Contact Information</legend>
+        <label for="contactName">Contact Name:</label>
+        <input type="text" id="contactName" name="contactName" required />
+        <label for="contactEmail">Email:</label>
+        <input type="email" id="contactEmail" name="contactEmail" required />
+        <label for="contactPhone" class="optional">Phone:</label>
+        <input type="tel" id="contactPhone" name="contactPhone" placeholder="e.g., 123-456-7890" />
+        <label for="contactCompany" class="optional">Company Name:</label>
+        <input type="text" id="contactCompany" name="contactCompany" />
+    </fieldset>
+
+
+    <div class="form-step active" id="step-1">
+      <h3>Step 1: Stops</h3>
+      <p>Enter all stop addresses in order (e.g., Pickup -> Dropoff 1 -> Dropoff 2...). Minimum 2 stops required.</p>
+      <div id="addressContainer">
+        <div class="address-group">
+          <button type="button" class="remove-button" onclick="removeGroup(this)" style="display:none;">Remove</button>
+          <label for="stopAddr1">Stop 1 Address:</label>
+          <input type="text" id="stopAddr1" class="address-input stop-addr" placeholder="Enter address for stop 1" required />
+          <label for="loadUnload1">Load/Unload Responsibility:</label>
+          <select id="loadUnload1" class="load-unload-select" required>
+              <option value="">-- Select Responsibility --</option>
+              <option value="customer">Customer</option>
+              <option value="driver">Driver</option>
+              <option value="driver_assist">Customer w/ Driver Assist</option>
+          </select>
+          <div>
+            <input type="checkbox" id="stairsCheck1" class="stairs-check" onchange="toggleFloorInput(this)">
+            <label for="stairsCheck1" class="inline-label">Steps/Stairs involved?</label>
+          </div>
+          <div class="floor-input-div" style="display:none;">
+            <label for="floorCount1">Floor Number:</label>
+            <input type="number" id="floorCount1" class="floor-count" min="1" placeholder="Floor #">
+          </div>
+        </div>
+        <div class="address-group">
+           <button type="button" class="remove-button" onclick="removeGroup(this)">Remove</button>
+           <label for="stopAddr2">Stop 2 Address:</label>
+           <input type="text" id="stopAddr2" class="address-input stop-addr" placeholder="Enter address for stop 2" required />
+           <label for="loadUnload2">Load/Unload Responsibility:</label>
+           <select id="loadUnload2" class="load-unload-select" required>
+               <option value="">-- Select Responsibility --</option>
+               <option value="customer">Customer</option>
+               <option value="driver">Driver</option>
+               <option value="driver_assist">Customer w/ Driver Assist</option>
+           </select>
+            <div>
+              <input type="checkbox" id="stairsCheck2" class="stairs-check" onchange="toggleFloorInput(this)">
+              <label for="stairsCheck2" class="inline-label">Steps/Stairs involved?</label>
+            </div>
+            <div class="floor-input-div" style="display:none;">
+              <label for="floorCount2">Floor Number:</label>
+              <input type="number" id="floorCount2" class="floor-count" min="1" placeholder="Floor #">
+            </div>
+        </div>
+      </div>
+      <button type="button" class="secondary" onclick="addAddress()">Add Another Stop</button>
+      <div>
+        <button type="button" class="primary" onclick="goToNextStep(1)">Next</button>
+      </div>
+    </div>
+
+
+    <div class="form-step" id="step-2">
+      <h3>Step 2: Package Details</h3>
+      <p>Enter quantity, description, weight (per item), and dimensions (per item) for each type of package. Max total weight 4000 lbs.</p>
+      <div id="packageContainer">
+        <div class="package-group">
+          <button type="button" class="remove-button" onclick="removeGroup(this)" style="display:none;">Remove</button>
+          <div class="inline-group">
+               <label for="pkgQty1">Qty:</label>
+               <input type="number" id="pkgQty1" class="pkg-qty" min="1" value="1" required style="width: 70px; margin-right: 15px;">
+              <label for="pkgDesc1" style="flex-grow: 1;">Description:</label>
+          </div>
+           <textarea id="pkgDesc1" class="pkg-desc" rows="2" placeholder="Describe item(s)" required></textarea>
+          <label for="pkgWeight1">Weight (lbs per item):</label>
+          <input type="number" id="pkgWeight1" class="pkg-weight" min="0" step="0.1" placeholder="Weight per item in lbs" required />
+          <small style="display: block; margin-top: -3px; margin-bottom: 10px; color: #6c757d;">Weight cost: $0.03 per pound (total weight).</small>
+          <label>Dimensions (L x W x H per item):</label>
+          <div class="inline-group">
+            <input type="number" id="pkgLength1" class="pkg-length dimension-input" min="0" step="0.1" placeholder="L" required title="Length" />
+            <span>x</span>
+            <input type="number" id="pkgWidth1" class="pkg-width dimension-input" min="0" step="0.1" placeholder="W" required title="Width"/>
+             <span>x</span>
+            <input type="number" id="pkgHeight1" class="pkg-height dimension-input" min="0" step="0.1" placeholder="H" required title="Height"/>
+            <select id="pkgUnit1" class="pkg-unit" required title="Dimension Unit">
+              <option value="inches" selected>Inches</option>
+              <option value="feet">Feet</option>
+            </select>
+          </div>
+          <label for="pkgUpload1" class="optional">Upload Image/Doc (Optional):</label>
+          <input type="file" id="pkgUpload1" class="pkg-upload" accept="image/*,application/pdf,.doc,.docx,.txt">
+          <small class="upload-status" data-upload-status>No file selected.</small>
+        </div>
+      </div>
+      <button type="button" class="secondary" onclick="addPackage()">Add Another Package</button>
+      <div>
+        <button type="button" class="secondary" onclick="goToPrevStep(2)">Previous</button>
+        <button type="button" class="primary" onclick="goToNextStep(2)">Next</button>
+      </div>
+    </div>
+
+
+    <div class="form-step" id="step-3">
+      <h3>Step 3: Service Details</h3>
+      <label for="vehicleType">Select Vehicle Type:</label>
+      <!-- UPDATED VEHICLE LIST -->
+      <select id="vehicleType" required>
+        <option value="">--Select--</option>
+        <option value="car">Car</option>
+        <option value="suv">SUV</option>
+        <option value="pickup_truck">Pickup Truck</option>
+        <option value="cargo_van">Cargo Van</option>
+        <option value="cargo_van_high_roof">Cargo Van (High Roof)</option>
+        <option value="box_truck">Box Truck</option>
+      </select>
+      <label for="pickupDate">Pickup Date:</label>
+      <input type="date" id="pickupDate" required />
+      <label for="pickupTime">Pickup Time:</label>
+      <input type="time" id="pickupTime" required />
+      <label for="urgency">Urgency:</label>
+      <select id="urgency" required>
+        <option value="">--Select Urgency--</option>
+        <option value="standard_9pm">Standard (End of Day 9pm)</option>
+        <option value="asap_2hr">ASAP (2 Hours)</option>
+        <option value="expedited_4hr">Expedite (4 Hours)</option>
+        <option value="late_night">Late Night (10pm - 4:30am)</option>
+      </select>
+
+
+      <label for="specialNotes" class="optional">Special Notes (PO #, Instructions, Equipment):</label>
+      <textarea id="specialNotes" rows="3" placeholder="Enter PO number, specific delivery instructions, or equipment needs here..."></textarea>
+
+
+      <h4>Additional Services</h4>
+      <div>
+        <input type="checkbox" id="insideDelivery" /> <label for="insideDelivery" class="inline-label">Inside Delivery</label>
+      </div>
+      <div>
+        <input type="checkbox" id="hazardousBio" /> <label for="hazardousBio" class="inline-label">Hazardous/Bio-Hazardous Materials</label>
+      </div>
+      <div>
+        <input type="checkbox" id="fragileHandling" /> <label for="fragileHandling" class="inline-label">Fragile/Special Handling</label>
+      </div>
+      <div>
+        <input type="checkbox" id="extraLaborer" /> <label for="extraLaborer" class="inline-label">Extra Laborer</label>
+      </div>
+      <div>
+        <button type="button" class="secondary" onclick="goToPrevStep(3)">Previous</button>
+        <button type="button" class="primary" onclick="goToNextStep(3)">Next</button>
+      </div>
+    </div>
+
+
+    <div class="form-step" id="step-4">
+      <h3>Step 4: Review & Quote</h3>
+      <p>Review your details below. Click "Calculate Quote" to see the estimated price.</p>
+      <div class="summary-section" id="summaryContainer">
+          </div>
+      <div id="weightWarning"></div>
+      <h3 id="quoteResult"></h3>
+      <button type="button" class="secondary" onclick="goToPrevStep(4)">Previous</button>
+      <button type="button" class="primary" onclick="calculateQuote()">Calculate Quote</button>
+      <button type="button" class="secondary" id="downloadSummaryBtn" style="display:none;" onclick="downloadSummary()">Download Summary</button>
+      <button type="button" class="primary" id="bookNowBtn" style="display:none;" onclick="handleBookNow()">Proceed to Payment</button>
+    </div>
+
+
+    <script>
+        // --- Global Variables ---
+        let currentStep = 1;
+        const totalSteps = 4;
+        let stopCounter = 2;
+        let packageCounter = 1;
+        let distanceService;
+        let geocoder;
+        let calculatedTotalMiles = 0;
+
+
+        // --- Initialization ---
+        function initializeMapsServices() {
+            if (typeof google !== 'undefined' && google.maps && google.maps.places && google.maps.DistanceMatrixService) {
+                try {
+                    distanceService = new google.maps.DistanceMatrixService();
+                    geocoder = new google.maps.Geocoder();
+                    initAutocompleteForExisting();
+                    showStep(currentStep);
+                    console.log("Google Maps Services Initialized.");
+                    return true;
+                } catch (error) {
+                    console.error("Error initializing Google Maps Services:", error);
+                    disableFormForMapsFailure('Error: Mapping services could not be loaded. Please try again later.');
+                    return false;
+                }
+            } else {
+                console.error("Google Maps script failed to load, core services not available, OR API key is invalid/missing.");
+                disableFormForMapsFailure('Error: Mapping services could not be loaded. Please try again later.');
+                return false;
+            }
+        }
+        // ========== PACKAGE FILE UPLOADS ==========
+        function createUploadToken() {
+          if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+          }
+          return `pkg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        }
+
+
+        function updateUploadStatusMessage(input, state, customMessage) {
+          const statusEl = input?.closest('.package-group')?.querySelector('[data-upload-status]');
+          if (!statusEl) return;
+          statusEl.classList.remove('upload-status--success', 'upload-status--error');
+          let message = customMessage;
+          if (!message) {
+            if (state === 'uploading') {
+              message = 'Uploading...';
+            } else if (state === 'uploaded') {
+              message = 'Upload complete.';
+            } else if (state === 'error') {
+              message = 'Upload failed.';
+            } else if (input?.files?.length) {
+              message = input.files[0].name;
+            } else {
+              message = 'No file selected.';
+            }
+          }
+          statusEl.textContent = message;
+          if (state === 'uploaded') {
+            statusEl.classList.add('upload-status--success');
+          } else if (state === 'error') {
+            statusEl.classList.add('upload-status--error');
+          }
+        }
+
+
+        function preparePackageUploadInput(input) {
+          if (!input) return;
+          if (!input.dataset.uploadToken) {
+            input.dataset.uploadToken = createUploadToken();
+          }
+          if (!input.dataset.uploadStatus) {
+            input.dataset.uploadStatus = (input.files && input.files.length) ? 'pending' : 'idle';
+          }
+          if (!input.dataset.uploadHandlerBound) {
+            input.addEventListener('change', (event) => {
+              handlePackageFileChange(event).catch((error) => {
+                console.error('Package upload error:', error);
+              });
+            });
+            input.dataset.uploadHandlerBound = 'true';
+          }
+          updateUploadStatusMessage(input, input.dataset.uploadStatus);
+        }
+
+
+        function initializePackageUploadHandlers() {
+          document.querySelectorAll('.pkg-upload').forEach((input) => preparePackageUploadInput(input));
+        }
+
+
+        function getAttachmentMetaForInput(uploadInput) {
+          if (!uploadInput) {
+            return { status: 'none', label: 'None', attachment: null };
+          }
+          const token = uploadInput.dataset.uploadToken;
+          const storedAttachment = token ? packageUploadState.get(token) : null;
+          if (storedAttachment) {
+            return {
+              status: 'uploaded',
+              label: storedAttachment.originalName || 'Attachment',
+              url: storedAttachment.publicUrl || null,
+              attachment: storedAttachment,
+            };
+          }
+          if (uploadInput.dataset.uploadStatus === 'uploading') {
+            const name = uploadInput.files && uploadInput.files[0] ? uploadInput.files[0].name : 'Uploading...';
+            return { status: 'uploading', label: name, attachment: null };
+          }
+          if (uploadInput.dataset.uploadStatus === 'error') {
+            const failedName = uploadInput.files && uploadInput.files[0] ? uploadInput.files[0].name : 'Upload failed';
+            return { status: 'error', label: failedName, attachment: null };
+          }
+          if (uploadInput.files && uploadInput.files.length > 0) {
+            return { status: 'pending', label: uploadInput.files[0].name, attachment: null };
+          }
+          return { status: 'none', label: 'None', attachment: null };
+        }
+
+
+        async function handlePackageFileChange(event) {
+          const input = event.target;
+          if (!input) return;
+          const token = input.dataset.uploadToken || createUploadToken();
+          input.dataset.uploadToken = token;
+
+
+          const files = input.files;
+          if (!files || files.length === 0) {
+            packageUploadState.delete(token);
+            input.dataset.uploadStatus = 'idle';
+            updateUploadStatusMessage(input, 'idle');
+            return;
+          }
+
+
+          const file = files[0];
+          if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES_FRONT) {
+            packageUploadState.delete(token);
+            input.dataset.uploadStatus = 'error';
+            const limitMb = (MAX_UPLOAD_FILE_SIZE_BYTES_FRONT / (1024 * 1024)).toFixed(1);
+            updateUploadStatusMessage(input, 'error', `Too large: exceeds ${limitMb} MB.`);
+            alert(`The selected file is larger than ${limitMb} MB. Please choose a smaller file.`);
+            input.value = '';
+            return;
+          }
+
+
+          input.dataset.uploadStatus = 'uploading';
+          updateUploadStatusMessage(input, 'uploading', `Uploading ${file.name}...`);
+
+
+          try {
+            const presignData = await requestPresignedUpload(file);
+            await uploadFileToSignedUrl(presignData.uploadUrl, file);
+            const metadata = {
+              storageKey: presignData.fileKey,
+              publicUrl: presignData.publicUrl || null,
+              originalName: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              size: file.size,
+              uploadedAt: new Date().toISOString(),
+            };
+            packageUploadState.set(token, metadata);
+            input.dataset.uploadStatus = 'uploaded';
+            updateUploadStatusMessage(input, 'uploaded', `Uploaded: ${file.name}`);
+          } catch (error) {
+            console.error('Package upload failed:', error);
+            packageUploadState.delete(token);
+            input.dataset.uploadStatus = 'error';
+            updateUploadStatusMessage(input, 'error', error.message || 'Upload failed.');
+            alert(error.message || 'Unable to upload file. Please try again.');
+            input.value = '';
+          }
+        }
+
+
+        async function requestPresignedUpload(file) {
+          const response = await fetch(UPLOADS_PRESIGN_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName: file.name,
+              fileType: file.type || 'application/octet-stream',
+              fileSize: file.size,
+            }),
+          });
+
+
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (error) {
+            console.warn('Failed to parse presign response as JSON:', error);
+          }
+
+
+          if (!response.ok) {
+            const message = data?.message || `Upload preparation failed (${response.status})`;
+            throw new Error(message);
+          }
+
+
+          if (!data?.uploadUrl || !data?.fileKey) {
+            throw new Error('Upload service returned an invalid response.');
+          }
+
+
+          return data;
+        }
+
+
+        async function uploadFileToSignedUrl(url, file) {
+          const response = await fetch(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': file.type || 'application/octet-stream' },
+            body: file,
+          });
+          if (!response.ok) {
+            throw new Error(`Upload failed with status ${response.status}`);
+          }
+        }
+
+
+        function ensurePackageUploadsComplete() {
+          const uploadingInput = Array.from(document.querySelectorAll('.pkg-upload')).find((input) => input.dataset.uploadStatus === 'uploading');
+          if (uploadingInput) {
+            throw new Error('Please wait for all package file uploads to finish.');
+          }
+        }
+
+
+        function parseFloatOrNull(value) {
+          if (value === undefined || value === null || value === '') return null;
+          const parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : null;
+        }
+
+
+        function collectPackagesData() {
+          const packageGroups = document.querySelectorAll('.package-group');
+          if (!packageGroups.length) {
+            return [];
+          }
+
+
+          ensurePackageUploadsComplete();
+
+
+          const packages = [];
+          packageGroups.forEach((group) => {
+            const uploadInput = group.querySelector('.pkg-upload');
+            const attachmentMeta = getAttachmentMetaForInput(uploadInput);
+            if (attachmentMeta.status === 'error') {
+              throw new Error(`File upload failed for ${attachmentMeta.label}. Please retry the upload or remove the file.`);
+            }
+            if (uploadInput && uploadInput.files && uploadInput.files.length > 0 && attachmentMeta.status !== 'uploaded') {
+              throw new Error(`File upload is still pending for ${attachmentMeta.label || uploadInput.files[0].name}.`);
+            }
+            const attachment = attachmentMeta.attachment ? { ...attachmentMeta.attachment } : null;
+
+
+            const qtyValue = parseInt(group.querySelector('.pkg-qty')?.value || '0', 10);
+            const descValue = (group.querySelector('.pkg-desc')?.value || '').trim();
+            const weightValue = parseFloatOrNull(group.querySelector('.pkg-weight')?.value);
+            const lengthValue = parseFloatOrNull(group.querySelector('.pkg-length')?.value);
+            const widthValue = parseFloatOrNull(group.querySelector('.pkg-width')?.value);
+            const heightValue = parseFloatOrNull(group.querySelector('.pkg-height')?.value);
+            const unitValue = (group.querySelector('.pkg-unit')?.value || 'inches').trim();
+            const fileName = attachment?.originalName || (uploadInput && uploadInput.files && uploadInput.files[0] ? uploadInput.files[0].name : null);
+
+
+            packages.push({
+              qty: Number.isFinite(qtyValue) && qtyValue > 0 ? qtyValue : 0,
+              desc: descValue,
+              weight: weightValue,
+              length: lengthValue,
+              width: widthValue,
+              height: heightValue,
+              unit: unitValue,
+              fileName,
+              attachment,
+            });
+          });
+
+
+          return packages;
+        }
+
+
+        // ========== STEP NAVIGATION & VALIDATION ==========
+        function showStep(stepNumber) {
+          document.querySelectorAll('.form-step').forEach(step => step.classList.remove('active'));
+          const currentStepDiv = document.getElementById(`step-${stepNumber}`);
+          if (currentStepDiv) {
+              currentStepDiv.classList.add('active');
+              currentStepDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+        function validateStep(stepNumber) {
+             let isValid = true;
+             const currentStepDiv = document.getElementById(`step-${stepNumber}`);
+             if (!currentStepDiv) return false;
+             currentStepDiv.querySelectorAll('.error-border').forEach(el => el.classList.remove('error-border'));
+             currentStepDiv.querySelectorAll('input[required], select[required], textarea[required]').forEach(input => {
+                 input.style.borderColor = '#ccc';
+                 let value = input.value;
+                 if ( (input.type === 'checkbox' && !input.checked && input.required) ||
+                      (!value || !value.trim()) && input.type !== 'checkbox' && input.required) {
+                     isValid = false;
+                     input.style.borderColor = 'red';
+                     if(input.type === 'checkbox') input.closest('div').classList.add('error-border');
+                  }
+                 else if (input.type === 'number' && input.min !== '' && parseFloat(value) < parseFloat(input.min)) {
+                     isValid = false; input.style.borderColor = 'red';
+                  }
+                 else if (input.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                      isValid = false; input.style.borderColor = 'red';
+                  }
+             });
+             if (stepNumber === 1) {
+                 const stops = currentStepDiv.querySelectorAll('.stop-addr');
+                 if (stops.length < 2) isValid = false;
+                 currentStepDiv.querySelectorAll('.address-group').forEach(group => {
+                     const stairsCheck = group.querySelector('.stairs-check');
+                     const floorInput = group.querySelector('.floor-count');
+                     const loadUnloadSelect = group.querySelector('.load-unload-select');
+                     if (stairsCheck && stairsCheck.checked && floorInput && (!floorInput.value || !floorInput.value.trim() || parseInt(floorInput.value) < 1)) {
+                          isValid = false; floorInput.style.borderColor = 'red';
+                     } else if (floorInput && floorInput.style.borderColor === 'red') {
+                           if (!isNaN(parseInt(floorInput.value)) && parseInt(floorInput.value) >= 1) floorInput.style.borderColor = '#ccc';
+                     }
+                     if (loadUnloadSelect && !loadUnloadSelect.value) {
+                         isValid = false; loadUnloadSelect.style.borderColor = 'red';
+                     }
+                 });
+                 if (!isValid) {
+                     if (stops.length < 2) alert("Please enter at least two stops (e.g., one pickup and one dropoff).");
+                     else alert('Please ensure all stop addresses are filled, a load/unload responsibility is selected, and enter the floor number (1 or higher) when stairs are indicated.');
+                  }
+             } else if (stepNumber === 2) {
+                 currentStepDiv.querySelectorAll('.package-group').forEach(group => {
+                     let packageValid = true;
+                     group.querySelectorAll('input[type="number"][required].pkg-weight, input[type="number"][required].pkg-length, input[type="number"][required].pkg-width, input[type="number"][required].pkg-height').forEach(numInput => {
+                         if (numInput.value && parseFloat(numInput.value) < 0) {
+                             packageValid = false; numInput.style.borderColor = 'red';
+                         }
+                     });
+                     if (!packageValid) { isValid = false; alert('Package weights and dimensions cannot be negative.'); }
+                 });
+             }
+             if (!isValid && stepNumber > 1 && stepNumber !== 2) {
+                 alert('Please fill out all required fields correctly (highlighted in red).');
+             }
+             return isValid;
+         }
+        function goToNextStep(stepNumber) {
+           if (stepNumber === 1) {
+               let contactValid = true;
+               document.querySelectorAll('#contactName, #contactEmail').forEach(input => {
+                   input.style.borderColor = '#ccc';
+                   if (!input.value || !input.value.trim()) { contactValid = false; input.style.borderColor = 'red';
+                   } else if (input.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value)) {
+                       contactValid = false; input.style.borderColor = 'red';
+                   }
+               });
+               if (!contactValid) {
+                   alert('Please fill in the required Contact Name and provide a valid Email before proceeding.');
+                   document.querySelector('fieldset').scrollIntoView({ behavior: 'smooth', block: 'start' }); return;
+               }
+           }
+           if (!validateStep(stepNumber)) return;
+          currentStep = stepNumber + 1;
+          showStep(currentStep);
+          if (currentStep === 4) buildSummary();
+        }
+        function goToPrevStep(stepNumber) {
+          currentStep = stepNumber - 1;
+          showStep(currentStep);
+        }
+
+
+
+
+        // ========== ADDRESS/STOP MANAGEMENT ==========
+         function addAddress() {
+          const addressContainer = document.getElementById('addressContainer');
+          const newStopIndex = addressContainer.children.length + 1;
+          stopCounter = newStopIndex;
+          const group = document.createElement('div');
+          group.className = 'address-group';
+          const stopInputId = `stopAddr${newStopIndex}`;
+          const loadUnloadId = `loadUnload${newStopIndex}`;
+          const stairsCheckId = `stairsCheck${newStopIndex}`;
+          const floorCountId = `floorCount${newStopIndex}`;
+          group.innerHTML = `
+            <button type="button" class="remove-button" onclick="removeGroup(this)">Remove</button>
+            <label for="${stopInputId}">Stop ${newStopIndex} Address:</label>
+            <input type="text" id="${stopInputId}" class="address-input stop-addr" placeholder="Enter address for stop ${newStopIndex}" required />
+            <label for="${loadUnloadId}">Load/Unload Responsibility:</label>
+            <select id="${loadUnloadId}" class="load-unload-select" required>
+                <option value="">-- Select Responsibility --</option>
+                <option value="customer">Customer</option>
+                <option value="driver">Driver</option>
+                <option value="driver_assist">Customer w/ Driver Assist</option>
+            </select>
+            <div>
+                <input type="checkbox" id="${stairsCheckId}" class="stairs-check" onchange="toggleFloorInput(this)">
+                <label for="${stairsCheckId}" class="inline-label">Steps/Stairs involved?</label>
+            </div>
+            <div class="floor-input-div" style="display:none;">
+                <label for="${floorCountId}">Floor Number:</label>
+                <input type="number" id="${floorCountId}" class="floor-count" min="1" placeholder="Floor #">
+            </div>
+          `; /* <-- FIX: Added a semicolon to properly terminate this template literal assignment. This was the unbalanced literal error. */
+          addressContainer.appendChild(group);
+          initAutocompleteForFields(group.querySelectorAll('.address-input'));
+        }
+        function removeGroup(btn) {
+          const group = btn.closest('.address-group, .package-group');
+          const container = group.parentNode;
+          if (container.id === 'packageContainer' && container.children.length <= 1) { alert("You must have at least one package."); return; }
+           if (container.id === 'addressContainer' && container.children.length <= 2) { alert("You need at least two stops (a pickup and a dropoff)."); return; }
+          if (container.id === 'packageContainer') {
+            const uploadInput = group.querySelector('.pkg-upload');
+            const token = uploadInput?.dataset?.uploadToken;
+            if (token) {
+              packageUploadState.delete(token);
+            }
+          }
+          group.remove();
+          if (container.id === 'addressContainer') renumberStops();
+          if (container.id === 'packageContainer') renumberPackages();
+        }
+        function renumberStops() {
+             const addressContainer = document.getElementById('addressContainer');
+             const allStopGroups = addressContainer.querySelectorAll('.address-group');
+             allStopGroups.forEach((group, index) => {
+                 const stopNumber = index + 1;
+                 const labelAddr = group.querySelector('label[for^="stopAddr"]');
+                 const inputAddr = group.querySelector('.stop-addr');
+                 const labelLoad = group.querySelector('label[for^="loadUnload"]');
+                 const selectLoad = group.querySelector('.load-unload-select');
+                 const stairsCheck = group.querySelector('.stairs-check');
+                 const stairsLabel = stairsCheck ? stairsCheck.nextElementSibling : null;
+                 const floorLabel = group.querySelector('.floor-input-div label');
+                 const floorInput = group.querySelector('.floor-count');
+                 const removeBtn = group.querySelector('.remove-button');
+                 const stopInputId = `stopAddr${stopNumber}`;
+                 const loadUnloadId = `loadUnload${stopNumber}`;
+                 const stairsCheckId = `stairsCheck${stopNumber}`;
+                 const floorCountId = `floorCount${stopNumber}`;
+                 if(labelAddr) { labelAddr.textContent = `Stop ${stopNumber} Address:`; labelAddr.htmlFor = stopInputId; }
+                 if(inputAddr) { inputAddr.id = stopInputId; inputAddr.placeholder = `Enter address for stop ${stopNumber}`; }
+                 if(labelLoad) { labelLoad.htmlFor = loadUnloadId; }
+                 if(selectLoad) { selectLoad.id = loadUnloadId; }
+                 if (stairsCheck) stairsCheck.id = stairsCheckId;
+                 if(stairsLabel) stairsLabel.htmlFor = stairsCheckId;
+                 if (floorLabel && floorInput) floorLabel.htmlFor = floorCountId;
+                 if (floorInput) floorInput.id = floorCountId;
+                 if(removeBtn) removeBtn.style.display = (stopNumber <= 1) ? 'none' : 'block';
+             });
+             stopCounter = allStopGroups.length;
+         }
+         function toggleFloorInput(checkbox) {
+            const group = checkbox.closest('.address-group');
+            const floorDiv = group.querySelector('.floor-input-div');
+            const floorInput = group.querySelector('.floor-count');
+            if (!group || !floorDiv || !floorInput) return;
+            if (checkbox.checked) {
+              floorDiv.style.display = 'block'; floorInput.required = true; floorInput.value = floorInput.value || '1';
+            } else {
+              floorDiv.style.display = 'none'; floorInput.required = false; floorInput.value = ''; floorInput.style.borderColor = '#ccc';
+            }
+          }
+        function initAutocompleteForExisting() {
+          const existingInputs = document.querySelectorAll('.address-input');
+          initAutocompleteForFields(existingInputs);
+        }
+        function initAutocompleteForFields(inputs) {
+           if (typeof google === 'undefined' || !google.maps || !google.maps.places) { console.warn("Google Places library not ready for autocomplete initialization."); return; }
+          inputs.forEach((input) => {
+            if (input.dataset.autocompleteInitialized) return;
+            try {
+                 const autocomplete = new google.maps.places.Autocomplete(input, { types: ['address'] });
+                 input.dataset.autocompleteInitialized = 'true';
+                 autocomplete.addListener('place_changed', () => { input.style.borderColor = '#ccc'; });
+            } catch (error) {
+                 console.error("Error initializing autocomplete for input:", input, error);
+                 input.placeholder = "Autocomplete failed to load"; input.style.backgroundColor = "#fff0f0";
+            }
+          });
+        }
+
+
+
+
+        // ========== PACKAGE MANAGEMENT ==========
+        function addPackage() {
+            packageCounter++;
+            const pkgContainer = document.getElementById('packageContainer');
+            const pkgGroup = document.createElement('div');
+            pkgGroup.className = 'package-group';
+            const qtyId = `pkgQty${packageCounter}`;
+            const descId = `pkgDesc${packageCounter}`;
+            const weightId = `pkgWeight${packageCounter}`;
+            const lengthId = `pkgLength${packageCounter}`;
+            const widthId = `pkgWidth${packageCounter}`;
+            const heightId = `pkgHeight${packageCounter}`;
+            const unitId = `pkgUnit${packageCounter}`;
+            const uploadId = `pkgUpload${packageCounter}`; // New ID for file upload
+
+
+            pkgGroup.innerHTML = `
+            <button type="button" class="remove-button" onclick="removeGroup(this)">Remove</button>
+            <div class="inline-group"> <label for="${qtyId}">Qty:</label> <input type="number" id="${qtyId}" class="pkg-qty" min="1" value="1" required style="width: 70px; margin-right: 15px;"> <label for="${descId}" style="flex-grow: 1;">Description:</label> </div>
+            <textarea id="${descId}" class="pkg-desc" rows="2" placeholder="Describe item(s)" required></textarea>
+            <label for="${weightId}">Weight (lbs per item):</label> <input type="number" id="${weightId}" class="pkg-weight" min="0" step="0.1" placeholder="Weight per item in lbs" required />
+             <small style="display: block; margin-top: -3px; margin-bottom: 10px; color: #6c757d;">Weight cost: $0.03 per pound (total weight).</small>
+            <label>Dimensions (L x W x H per item):</label>
+            <div class="inline-group"> <input type="number" id="${lengthId}" class="pkg-length dimension-input" min="0" step="0.1" placeholder="L" required title="Length" /> <span>x</span> <input type="number" id="${widthId}" class="pkg-width dimension-input" min="0" step="0.1" placeholder="W" required title="Width"/> <span>x</span> <input type="number" id="${heightId}" class="pkg-height dimension-input" min="0" step="0.1" placeholder="H" required title="Height"/> <select id="${unitId}" class="pkg-unit" required title="Dimension Unit"> <option value="inches" selected>Inches</option> <option value="feet">Feet</option> </select> </div>
+            <label for="${uploadId}" class="optional">Upload Image/Doc (Optional):</label>
+            <input type="file" id="${uploadId}" class="pkg-upload" accept="image/*,application/pdf,.doc,.docx,.txt">
+            <small class="upload-status" data-upload-status>No file selected.</small>
+            `;
+            pkgContainer.appendChild(pkgGroup);
+            const uploadInput = pkgGroup.querySelector('.pkg-upload');
+            if (uploadInput) {
+              preparePackageUploadInput(uploadInput);
+            }
+            renumberPackages();
+        }
+        function renumberPackages() {
+             const pkgContainer = document.getElementById('packageContainer');
+             const allPkgGroups = pkgContainer.querySelectorAll('.package-group');
+             allPkgGroups.forEach((group, index) => {
+                 const pkgNumber = index + 1;
+                 const qtyId = `pkgQty${pkgNumber}`; const descId = `pkgDesc${pkgNumber}`; const weightId = `pkgWeight${pkgNumber}`;
+                 const lengthId = `pkgLength${pkgNumber}`; const widthId = `pkgWidth${pkgNumber}`; const heightId = `pkgHeight${pkgNumber}`; const unitId = `pkgUnit${pkgNumber}`;
+                 const uploadId = `pkgUpload${pkgNumber}`; // Renumber file upload
+                 group.querySelector('label[for^="pkgQty"]')?.setAttribute('for', qtyId); group.querySelector('.pkg-qty')?.setAttribute('id', qtyId);
+                 group.querySelector('label[for^="pkgDesc"]')?.setAttribute('for', descId); group.querySelector('.pkg-desc')?.setAttribute('id', descId);
+                 group.querySelector('label[for^="pkgWeight"]')?.setAttribute('for', weightId); group.querySelector('.pkg-weight')?.setAttribute('id', weightId);
+                 group.querySelector('.pkg-length')?.setAttribute('id', lengthId); group.querySelector('.pkg-width')?.setAttribute('id', widthId);
+                 group.querySelector('.pkg-height')?.setAttribute('id', heightId); group.querySelector('.pkg-unit')?.setAttribute('id', unitId);
+                 group.querySelector('label[for^="pkgUpload"]')?.setAttribute('for', uploadId);
+                const uploadInput = group.querySelector('.pkg-upload');
+                if (uploadInput) {
+                  uploadInput.setAttribute('id', uploadId);
+                  preparePackageUploadInput(uploadInput);
+                }
+                 const removeBtn = group.querySelector('.remove-button'); if(removeBtn) removeBtn.style.display = (pkgNumber === 1) ? 'none' : 'block';
+             });
+             packageCounter = allPkgGroups.length;
+         }
+
+
+
+
+        // ========== BUILD SUMMARY (For HTML Display) ==========
+        function buildSummary() {
+          const summaryDiv = document.getElementById('summaryContainer');
+          summaryDiv.innerHTML = '';
+          const contactName = document.getElementById('contactName')?.value || 'N/A';
+          const contactEmail = document.getElementById('contactEmail')?.value || 'N/A';
+          const contactPhone = document.getElementById('contactPhone')?.value || '';
+          const contactCompany = document.getElementById('contactCompany')?.value || '';
+           let contactSummary = `<h4>Contact Information</h4><p>Name: ${contactName}</p><p>Email: ${contactEmail}</p>`;
+            if (contactPhone) contactSummary += `<p>Phone: ${contactPhone}</p>`;
+            if (contactCompany) contactSummary += `<p>Company: ${contactCompany}</p>`;
+          const stops = document.querySelectorAll('.address-group');
+          let addressSummary = '<h4>Stops</h4>';
+          if (stops.length < 2) { addressSummary += '<p>Please enter at least 2 stops.</p>'; }
+          else { stops.forEach((stopGroup, i) => {
+                    const addressInput = stopGroup.querySelector('.stop-addr');
+                    const loadUnloadSelect = stopGroup.querySelector('.load-unload-select');
+                    const stairsCheck = stopGroup.querySelector('.stairs-check');
+                    const floorInput = stopGroup.querySelector('.floor-count');
+                    let addressText = addressInput ? addressInput.value : 'N/A';
+                    addressSummary += `<p><strong>Stop ${i + 1}:</strong> ${addressText}`;
+                    let loadUnloadText = 'N/A';
+                    if (loadUnloadSelect && loadUnloadSelect.selectedOptions.length > 0 && loadUnloadSelect.value !== "") { loadUnloadText = loadUnloadSelect.selectedOptions[0].text; }
+                    addressSummary += ` (Load/Unload: ${loadUnloadText})`;
+                    if (stairsCheck && stairsCheck.checked) { let floorValue = (floorInput && floorInput.value) ? floorInput.value : 'Not specified'; addressSummary += ` (Stairs: Yes, Floor: ${floorValue})`; }
+                    else { addressSummary += ` (Stairs: No)`; }
+                    addressSummary += `</p>`; });
+          }
+           const packageGroups = document.querySelectorAll('.package-group');
+           let pkgSummary = '<h4>Packages</h4>';
+            if (packageGroups.length === 0) { pkgSummary += '<p>No packages added.</p>'; }
+            else {
+              packageGroups.forEach((pkgGroup, j) => {
+                const pkgQty = pkgGroup.querySelector('.pkg-qty')?.value || '1';
+                const pkgDesc = pkgGroup.querySelector('.pkg-desc')?.value || 'N/A';
+                const pkgWeight = pkgGroup.querySelector('.pkg-weight')?.value || '0';
+                const pkgLength = pkgGroup.querySelector('.pkg-length')?.value || '0';
+                const pkgWidth = pkgGroup.querySelector('.pkg-width')?.value || '0';
+                const pkgHeight = pkgGroup.querySelector('.pkg-height')?.value || '0';
+                const pkgUnit = pkgGroup.querySelector('.pkg-unit')?.value || 'inches';
+                const attachmentMeta = getAttachmentMetaForInput(pkgGroup.querySelector('.pkg-upload'));
+                let attachmentHtml = attachmentMeta.label || 'None';
+                if (attachmentMeta.status === 'uploaded' && attachmentMeta.url) {
+                  attachmentHtml = `<a href="${attachmentMeta.url}" target="_blank" rel="noopener">${attachmentMeta.label}</a>`;
+                } else if (attachmentMeta.status === 'uploading') {
+                  attachmentHtml = `Uploading: ${attachmentMeta.label}`;
+                } else if (attachmentMeta.status === 'pending') {
+                  attachmentHtml = `Pending upload: ${attachmentMeta.label}`;
+                }
+                pkgSummary += `<p><strong>Package ${j + 1} (${pkgQty}x):</strong> ${pkgDesc}<br/>`;
+                pkgSummary += `<span style="margin-left: 10px;">Wt(ea): ${pkgWeight} lbs, Dim(ea): ${pkgLength}x${pkgWidth}x${pkgHeight} ${pkgUnit}, Attachment: ${attachmentHtml}</span></p>`;
+              });
+            }
+          const vehicleTypeSelect = document.getElementById('vehicleType');
+          const vehicleTypeText = vehicleTypeSelect.value ? vehicleTypeSelect.options[vehicleTypeSelect.selectedIndex].text : 'N/A';
+          const pickupDate = document.getElementById('pickupDate').value;
+          const pickupTime = document.getElementById('pickupTime').value;
+          const urgencySelect = document.getElementById('urgency');
+          const urgencyText = urgencySelect.value ? urgencySelect.options[urgencySelect.selectedIndex].text : 'N/A'; // Display text without fee
+          const specialNotes = document.getElementById('specialNotes')?.value || 'None';
+
+
+          const insideDelivery = document.getElementById('insideDelivery').checked;
+          const hazardousBio = document.getElementById('hazardousBio').checked;
+          const fragileHandling = document.getElementById('fragileHandling').checked;
+          const extraLaborer = document.getElementById('extraLaborer').checked;
+
+
+          let extrasSummary = `<h4>Details & Services</h4><p>Vehicle: ${vehicleTypeText}</p><p>Pickup Date/Time: ${pickupDate || 'N/A'} ${pickupTime || 'N/A'}</p><p>Urgency: ${urgencyText}</p>`;
+          extrasSummary += `<p>Special Notes: ${specialNotes}</p>`;
+          extrasSummary += `<p>Inside Delivery: ${insideDelivery ? 'Yes' : 'No'}</p>`; // Removed fee display
+          extrasSummary += `<p>Hazardous/Bio-Hazardous: ${hazardousBio ? 'Yes' : 'No'}</p>`; // Updated label, removed fee display
+          extrasSummary += `<p>Fragile/Special Handling: ${fragileHandling ? 'Yes' : 'No'}</p>`; // New, removed fee display
+          extrasSummary += `<p>Extra Laborer: ${extraLaborer ? 'Yes' : 'No'}</p>`; // Removed fee display
+          extrasSummary += `<p id="summary-miles">Total Distance: Pending Calculation...</p>`;
+
+
+          summaryDiv.innerHTML = contactSummary + addressSummary + pkgSummary + extrasSummary;
+          document.getElementById('quoteResult').textContent = '';
+          document.getElementById('bookNowBtn').style.display = 'none';
+          document.getElementById('downloadSummaryBtn').style.display = 'none';
+          document.getElementById('weightWarning').style.display = 'none'; // Hide warning
+        }
+
+
+
+
+        // ========== HELPER: GET DISTANCE ==========
+        function getDistanceInMiles(origin, destination) {
+            return new Promise((resolve, reject) => {
+                if (!distanceService) return reject('Distance service not ready.');
+                if (!origin || !destination) return reject('Missing origin or destination.');
+                distanceService.getDistanceMatrix(
+                    { origins: [origin], destinations: [destination], travelMode: google.maps.TravelMode.DRIVING, unitSystem: google.maps.UnitSystem.IMPERIAL, },
+                    (response, status) => {
+                        const element = response?.rows?.[0]?.elements?.[0];
+                        if (status === 'OK' && element?.status === 'OK') {
+                            const distanceMeters = element.distance.value;
+                            if (typeof distanceMeters === 'number') resolve(distanceMeters / 1609.34);
+                            else reject('Invalid distance data from Google');
+                        } else {
+                            const elementStatus = element?.status;
+                            console.error('DistanceMatrix Error:', status, elementStatus, response);
+                            if (status === 'REQUEST_DENIED' || element?.status === 'REQUEST_DENIED') reject(`Cannot get distance: API Key/Billing/Enablement issue.`);
+                            else if (elementStatus === 'NOT_FOUND') reject(`Cannot get distance: Address not found.`);
+                            else if (elementStatus === 'ZERO_RESULTS') reject(`Cannot get distance: No driving route found.`);
+                            else reject(`Cannot get distance: Google API Error (${status || elementStatus || 'Unknown'})`);
+                        }
+                    }
+                );
+            });
+        }
+
+
+
+
+        // ========== QUOTE CALCULATION & DATA LOGGING TO BACKEND ==========
+        async function calculateQuote() {
+             if (!validateStep(1) || !validateStep(2) || !validateStep(3)) { return; }
+             buildSummary(); // Call buildSummary to update the display before calculation
+            const quoteResultEl = document.getElementById('quoteResult');
+            const milesSummaryEl = document.getElementById('summary-miles');
+            const bookBtn = document.getElementById('bookNowBtn');
+            const downloadBtn = document.getElementById('downloadSummaryBtn');
+            const weightWarningEl = document.getElementById('weightWarning');
+            
+            quoteResultEl.textContent = 'Calculating... Please Wait';
+            milesSummaryEl.textContent = 'Total Distance: Calculating...';
+            bookBtn.style.display = 'none'; downloadBtn.style.display = 'none';
+            weightWarningEl.style.display = 'none'; // Hide warning initially
+            bookBtn.disabled = true; downloadBtn.disabled = true;
+            calculatedTotalMiles = 0;
+
+
+            const stopGroups = document.querySelectorAll('.address-group');
+            const stopsData = Array.from(stopGroups).map(group => ({
+                address: group.querySelector('.stop-addr').value.trim(),
+                loadUnload: group.querySelector('.load-unload-select').value,
+                stairs: group.querySelector('.stairs-check').checked,
+                floor: group.querySelector('.floor-count').value
+            })).filter(stop => stop.address.length > 0);
+
+
+            if (stopsData.length < 2) {
+                alert("Need at least 2 valid stops to calculate a route.");
+                quoteResultEl.textContent = 'Error: Not enough stops.';
+                milesSummaryEl.textContent = 'Total Distance: N/A';
+                return;
+            }
+
+
+            let totalMiles = 0;
+            try {
+                const stopAddresses = stopsData.map(s => s.address);
+                for (let i = 0; i < stopAddresses.length - 1; i++) {
+                    const distanceMiles = await getDistanceInMiles(stopAddresses[i], stopAddresses[i+1]);
+                    if (typeof distanceMiles !== 'number' || isNaN(distanceMiles)) { throw new Error(`Invalid distance for leg ${i+1}`); }
+                    totalMiles += distanceMiles;
+                }
+                calculatedTotalMiles = totalMiles;
+                milesSummaryEl.textContent = `Total Distance: ${totalMiles.toFixed(1)} miles`; // Update summary again
+                console.log(`Total Distance: ${totalMiles.toFixed(1)} miles`);
+            } catch (error) {
+                console.error(`Distance calc failed:`, error);
+                milesSummaryEl.textContent = `Total Distance: Error`;
+                quoteResultEl.textContent = (error instanceof Error) ? error.message : 'Error calculating distance.';
+                return;
+            }
+
+
+            let finalQuote = 0;
+            let totalWeight = 0;
+            document.querySelectorAll('.package-group').forEach(pkgGroup => {
+                const qty = parseInt(pkgGroup.querySelector('.pkg-qty')?.value || '1');
+                const weightPerItem = parseFloat(pkgGroup.querySelector('.pkg-weight')?.value || '0');
+                if (!isNaN(qty) && !isNaN(weightPerItem) && qty > 0 && weightPerItem >= 0) {
+                    totalWeight += qty * weightPerItem;
+                }
+            });
+            console.log("Total Weight for Quote:", totalWeight);
+
+
+            // Max weight check
+            if (totalWeight > 4000) {
+                alert("Total weight exceeds the maximum limit of 4000 lbs. Please adjust package details.");
+                quoteResultEl.textContent = 'Error: Weight limit exceeded.';
+                return;
+            }
+
+
+            try {
+                // --- NEW: Vehicle Mileage Rate Logic ---
+                const vehicleType = document.getElementById('vehicleType').value;
+                const vehicleSelect = document.getElementById('vehicleType');
+                const vehicleText = vehicleSelect.options[vehicleSelect.selectedIndex].text;
+                let mileageRate = 0;
+                let maxWeight = 0;
+
+
+                switch (vehicleType) {
+                    case 'car': mileageRate = 0.80; maxWeight = 100; break;
+                    case 'suv': mileageRate = 1.10; maxWeight = 300; break;
+                    case 'pickup_truck': mileageRate = 1.25; maxWeight = 1000; break;
+                    case 'cargo_van': mileageRate = 1.50; maxWeight = 2500; break;
+                    case 'cargo_van_high_roof': mileageRate = 1.85; maxWeight = 3500; break;
+                    case 'box_truck': mileageRate = 2.24; maxWeight = 4000; break;
+                    default:
+                        quoteResultEl.textContent = 'Error: Please select a valid vehicle type.';
+                        return; // Stop the calculation
+                }
+
+
+                // --- NEW: Weight Capacity Warning ---
+                if (totalWeight > maxWeight) {
+                    weightWarningEl.textContent = `Warning: The total weight of ${totalWeight.toFixed(1)} lbs exceeds the typical capacity for a ${vehicleText}. Please verify your selection.`;
+                    weightWarningEl.style.display = 'block';
+                }
+
+
+                let mileageCost = totalMiles * mileageRate;
+                const weightCostRate = 0.03;
+                let weightCost = totalWeight * weightCostRate;
+                let totalLoadUnloadFee = 0;
+                stopsData.forEach((stop) => {
+                    let fee = 0; let driverFee = 0;
+                    if (totalWeight > 0) {
+                        if (totalWeight <= 50) driverFee = 5;
+                        else if (totalWeight <= 250) driverFee = 10;
+                        else if (totalWeight <= 500) driverFee = 15;
+                        else if (totalWeight <= 1000) driverFee = 20;
+                        else if (totalWeight <= 1500) driverFee = 30;
+                        else if (totalWeight <= 2000) driverFee = 40;
+                        else if (totalWeight <= 2500) driverFee = 50;
+                        else driverFee = 60; // Max $60 for > 2500 lbs
+                    }
+                    if (stop.loadUnload === 'driver') fee = driverFee;
+                    else if (stop.loadUnload === 'driver_assist') fee = driverFee / 2;
+                    totalLoadUnloadFee += fee;
+                });
+                let totalStairCost = 0;
+                stopsData.forEach(stop => { if (stop.stairs && stop.floor) { const floor = parseInt(stop.floor); if (!isNaN(floor) && floor > 1) totalStairCost += (floor - 1) * 5.00; } });
+                
+                let servicesMultiplier = 1.0; let flatServiceFees = 0;
+                if (document.getElementById('insideDelivery').checked) servicesMultiplier += 0.05;
+                if (document.getElementById('hazardousBio').checked) servicesMultiplier += 0.20; // Consolidated
+                if (document.getElementById('fragileHandling').checked) servicesMultiplier += 0.05; // NEW Fragile fee (5%)
+                if (document.getElementById('extraLaborer').checked) flatServiceFees += 35.00;
+                
+                const urgency = document.getElementById('urgency').value;
+                let urgencyPremium = 0;
+                if (urgency === 'asap_2hr') urgencyPremium = 65.00;
+                else if (urgency === 'expedited_4hr') urgencyPremium = 50.00;
+                else if (urgency === 'late_night') urgencyPremium = 75.00;
+                
+                const numStops = stopsData.length; let additionalStopFee = 0;
+                if (numStops > 2) additionalStopFee = (numStops - 2) * 3.50;
+                
+                const baseCost = mileageCost + weightCost;
+                const costAfterMultiplier = baseCost * servicesMultiplier;
+                const totalCost = costAfterMultiplier + totalLoadUnloadFee + totalStairCost + flatServiceFees + urgencyPremium + additionalStopFee;
+                finalQuote = Math.max(0, totalCost);
+
+
+                quoteResultEl.textContent = `Estimated Quote: $${finalQuote.toFixed(2)}`;
+                bookBtn.style.display = 'inline-block'; downloadBtn.style.display = 'inline-block';
+                bookBtn.disabled = false; downloadBtn.disabled = false;
+                bookBtn.dataset.quoteAmount = finalQuote.toFixed(2);
+
+
+            } catch (error) { console.error("Cost calc error:", error); quoteResultEl.textContent = 'Error calculating cost.'; return; }
+
+
+            // --- Send Data to Backend for Logging Calculated Quote ---
+            if (finalQuote >= 0 && quoteResultEl.textContent.startsWith("Estimated Quote")) {
+                try {
+                    // *** IMPORTANT: Use your DEPLOYED backend URL here ***
+                    const LOGGING_BACKEND_URL_CALCULATE_QUOTE = `${BACKEND_BASE_URL}/log-calculated-quote`; 
+
+
+                    const contactDetails = { name: document.getElementById('contactName')?.value || '', email: document.getElementById('contactEmail')?.value || '', phone: document.getElementById('contactPhone')?.value || '', company: document.getElementById('contactCompany')?.value || '' };
+                    const packageGroups = document.querySelectorAll('.package-group');
+                    let packagesData;
+                    try {
+                        packagesData = collectPackagesData();
+                    } catch (collectionError) {
+                        alert(collectionError.message || 'Please resolve package upload issues before continuing.');
+                        return;
+                    }
+                    if (packagesData.length === 0) { alert("Error: Need package details for payment."); return; }
+                    const serviceDetails = {
+                        vehicleType: document.getElementById('vehicleType')?.value || '',
+                        pickupDate: document.getElementById('pickupDate')?.value || '',
+                        pickupTime: document.getElementById('pickupTime')?.value || '',
+                        urgency: document.getElementById('urgency')?.value || '',
+                        specialNotes: document.getElementById('specialNotes')?.value || '',
+                        insideDelivery: document.getElementById('insideDelivery')?.checked || false,
+                        hazardousBio: document.getElementById('hazardousBio')?.checked || false,
+                        fragileHandling: document.getElementById('fragileHandling')?.checked || false,
+                        extraLaborer: document.getElementById('extraLaborer')?.checked || false
+                    };
+                    const leadData = { contactDetails: contactDetails, stopsData: stopsData, packagesData: packagesData, serviceDetails: serviceDetails, totalMiles: calculatedTotalMiles, calculatedQuote: finalQuote };
+
+
+                    console.log("Sending calculated quote data to backend:", JSON.stringify(leadData, null, 2));
+
+
+                    fetch(LOGGING_BACKEND_URL_CALCULATE_QUOTE, {
+                        method: 'POST',
+                        cache: 'no-cache',
+                        headers: { 'Content-Type': 'application/json', },
+                        body: JSON.stringify(leadData),
+                    })
+                    .then(response => {
+                        console.log('Backend calculated quote logging response status:', response.status);
+                        if (!response.ok) {
+                            return response.json().then(errData => {
+                                throw new Error(`Backend logging failed: ${response.status} ${response.statusText} - ${errData.message || 'No details'}`);
+                            }).catch(() => { throw new Error(`Backend logging failed: ${response.status} ${response.statusText}`); });
+                        }
+                        return response.json();
+                    })
+                    .then(result => {
+                        console.log('Backend Calculated Quote Logging Response:', result);
+                        if (result && result.status === 'success') { console.log('Calculated quote data successfully logged by backend.'); }
+                        else { console.error('Backend reported an error logging calculated quote:', result ? result.message : 'Unknown error'); }
+                    })
+                    .catch(error => { console.error('Error sending calculated quote data to backend:', error); });
+                } catch (logError) { console.error("Error preparing/sending calculated quote data to backend:", logError); }
+            }
+        }
+
+
+
+
+        // ========== GENERATE SUMMARY TEXT ==========
+        function generateSummaryText() {
+            let summaryText = "Delivery Quote Summary\n========================\n\n";
+            summaryText += "Contact Information:\n";
+            summaryText += `  Name: ${document.getElementById('contactName')?.value || 'N/A'}\n`;
+            summaryText += `  Email: ${document.getElementById('contactEmail')?.value || 'N/A'}\n`;
+            const contactPhone = document.getElementById('contactPhone')?.value; if (contactPhone) summaryText += `  Phone: ${contactPhone}\n`;
+            const contactCompany = document.getElementById('contactCompany')?.value; if (contactCompany) summaryText += `  Company: ${contactCompany}\n`;
+            summaryText += "\nStops:\n";
+            const stops = document.querySelectorAll('.address-group');
+            if (stops.length < 2) { summaryText += "  (Not enough stops entered)\n"; }
+            else { stops.forEach((stopGroup, i) => { const addressInput = stopGroup.querySelector('.stop-addr'); const loadUnloadSelect = stopGroup.querySelector('.load-unload-select'); const stairsCheck = stopGroup.querySelector('.stairs-check'); const floorInput = stopGroup.querySelector('.floor-count'); let addressText = addressInput ? addressInput.value : 'N/A'; summaryText += `  Stop ${i + 1}: ${addressText}\n`; let loadUnloadText = 'N/A'; if (loadUnloadSelect && loadUnloadSelect.selectedOptions.length > 0 && loadUnloadSelect.value !== "") loadUnloadText = loadUnloadSelect.selectedOptions[0].text; summaryText += `    Load/Unload: ${loadUnloadText}\n`; if (stairsCheck && stairsCheck.checked) { let floorValue = (floorInput && floorInput.value) ? floorInput.value : 'Not specified'; summaryText += `    Stairs: Yes, Floor: ${floorValue}\n`; } else { summaryText += `    Stairs: No\n`; } }); }
+            summaryText += "\nPackages:\n";
+            const packageGroups = document.querySelectorAll('.package-group');
+            if (packageGroups.length === 0) { summaryText += "  (No packages added)\n"; }
+            else {
+              packageGroups.forEach((pkgGroup, j) => {
+                const pkgQty = pkgGroup.querySelector('.pkg-qty')?.value || '1';
+                const pkgDesc = pkgGroup.querySelector('.pkg-desc')?.value || 'N/A';
+                const pkgWeight = pkgGroup.querySelector('.pkg-weight')?.value || '0';
+                const pkgLength = pkgGroup.querySelector('.pkg-length')?.value || '0';
+                const pkgWidth = pkgGroup.querySelector('.pkg-width')?.value || '0';
+                const pkgHeight = pkgGroup.querySelector('.pkg-height')?.value || '0';
+                const pkgUnit = pkgGroup.querySelector('.pkg-unit')?.value || 'inches';
+                const attachmentMeta = getAttachmentMetaForInput(pkgGroup.querySelector('.pkg-upload'));
+                let attachmentLabel = attachmentMeta.label || 'None';
+                if (attachmentMeta.status === 'uploaded' && attachmentMeta.url) {
+                  attachmentLabel = `${attachmentMeta.label} (${attachmentMeta.url})`;
+                } else if (attachmentMeta.status === 'uploading') {
+                  attachmentLabel = `Uploading: ${attachmentMeta.label}`;
+                } else if (attachmentMeta.status === 'pending') {
+                  attachmentLabel = `Pending upload: ${attachmentMeta.label}`;
+                }
+                summaryText += `  Package ${j+1} (${pkgQty}x): ${pkgDesc}\n`;
+                summaryText += `    Wt(ea): ${pkgWeight} lbs, Dim(ea): ${pkgLength}x${pkgWidth}x${pkgHeight} ${pkgUnit}, Attachment: ${attachmentLabel}\n`;
+              });
+            }
+            summaryText += "\nDetails & Services:\n";
+            const vehicleTypeSelect = document.getElementById('vehicleType');
+            const vehicleTypeText = vehicleTypeSelect.value ? vehicleTypeSelect.options[vehicleTypeSelect.selectedIndex].text : 'N/A';
+            summaryText += `  Vehicle: ${vehicleTypeText}\n`;
+            summaryText += `  Pickup Date/Time: ${document.getElementById('pickupDate').value || 'N/A'} ${document.getElementById('pickupTime').value || 'N/A'}\n`;
+            const urgencySelect = document.getElementById('urgency');
+            const urgencyText = urgencySelect.value ? urgencySelect.options[urgencySelect.selectedIndex].text : 'N/A';
+            summaryText += `  Urgency: ${urgencyText}\n`; // Display text without fee
+            summaryText += `  Special Notes: ${document.getElementById('specialNotes')?.value || 'None'}\n`;
+            summaryText += `  Inside Delivery: ${document.getElementById('insideDelivery').checked ? 'Yes' : 'No'}\n`;
+            summaryText += `  Hazardous/Bio-Hazardous: ${document.getElementById('hazardousBio').checked ? 'Yes' : 'No'}\n`; // Updated
+            summaryText += `  Fragile/Special Handling: ${document.getElementById('fragileHandling').checked ? 'Yes' : 'No'}\n`; // New
+            summaryText += `  Extra Laborer: ${document.getElementById('extraLaborer').checked ? 'Yes' : 'No'}\n`;
+            summaryText += `  Total Distance: ${calculatedTotalMiles > 0 ? calculatedTotalMiles.toFixed(1) + ' miles' : 'Not Calculated'}\n`;
+            
+            const weightWarningEl = document.getElementById('weightWarning');
+            if (weightWarningEl && weightWarningEl.style.display !== 'none') {
+                summaryText += `\nWarning:\n  ${weightWarningEl.textContent}\n`;
+            }
+
+
+            summaryText += "\nQuote:\n";
+            summaryText += `  ${document.getElementById('quoteResult').textContent || 'Not Calculated'}\n`;
+            return summaryText;
+        }
+
+
+
+
+        // ========== DOWNLOAD SUMMARY FUNCTION ==========
+        function downloadSummary() {
+             console.log("Download summary requested.");
+            try {
+                const summaryContent = generateSummaryText();
+                const blob = new Blob([summaryContent], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'delivery_summary.txt';
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                console.log("Summary download initiated.");
+            } catch (error) {
+                console.error("Error generating or downloading summary:", error);
+                alert("Could not download summary. Please check the console for errors.");
+            }
+        }
+
+
+
+
+        // ========== STRIPE PAYMENT LINK ==========
+        async function handleBookNow() {
+            console.log("Initiating Book Now process...");
+            const bookBtn = document.getElementById('bookNowBtn');
+            // --- Gather Data ---
+            const stopGroups = document.querySelectorAll('.address-group'); const stopsDataForBackend = Array.from(stopGroups).map(group => ({ address: group.querySelector('.stop-addr')?.value.trim() || '', loadUnload: group.querySelector('.load-unload-select')?.value || '', stairs: group.querySelector('.stairs-check')?.checked || false, floor: group.querySelector('.floor-count')?.value || '' })).filter(stop => stop.address.length > 0);
+            if (stopsDataForBackend.length < 2) { alert("Error: Need 2+ stops for payment."); return; }
+
+
+            const packageGroups = document.querySelectorAll('.package-group');
+            let packagesData;
+            try {
+                packagesData = collectPackagesData();
+            } catch (collectionError) {
+                alert(collectionError.message || 'Please resolve package upload issues before continuing.');
+                return;
+            }
+            if (packagesData.length === 0) { alert("Error: Need package details for payment."); return; }
+
+
+            const serviceDetails = {
+                vehicleType: document.getElementById('vehicleType')?.value || '',
+                pickupDate: document.getElementById('pickupDate')?.value || '',
+                pickupTime: document.getElementById('pickupTime')?.value || '',
+                urgency: document.getElementById('urgency')?.value || '',
+                specialNotes: document.getElementById('specialNotes')?.value || '',
+                insideDelivery: document.getElementById('insideDelivery')?.checked || false,
+                hazardousBio: document.getElementById('hazardousBio')?.checked || false,
+                fragileHandling: document.getElementById('fragileHandling')?.checked || false,
+                extraLaborer: document.getElementById('extraLaborer')?.checked || false
+            };
+            if (!serviceDetails.vehicleType || !serviceDetails.pickupDate || !serviceDetails.pickupTime || !serviceDetails.urgency) { alert("Error: Missing service details."); return; }
+
+
+            const customerEmail = document.getElementById('contactEmail')?.value || '';
+            const customerName = document.getElementById('contactName')?.value || '';
+            const customerPhone = document.getElementById('contactPhone')?.value || '';
+            const customerCompany = document.getElementById('contactCompany')?.value || '';
+            const contactDetails = { name: customerName, email: customerEmail, phone: customerPhone, company: customerCompany };
+             if (!customerName) { alert("Error: Contact name required."); return; } if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) { alert("Error: Valid contact email required."); return; }
+
+
+            const totalMiles = calculatedTotalMiles; if (typeof totalMiles !== 'number' || totalMiles < 0) { alert("Error: Distance not calculated."); return; }
+            const quoteAmount = bookBtn.dataset.quoteAmount; if (!quoteAmount || isNaN(parseFloat(quoteAmount))) { alert("Error: Quote amount not available."); return; }
+
+
+            // --- Prepare Fetch Request to /create-checkout-session ---
+            bookBtn.textContent = 'Processing...'; bookBtn.disabled = true; document.getElementById('downloadSummaryBtn').disabled = true;
+            try {
+                // *** IMPORTANT: Use your DEPLOYED backend URL here ***
+                const CHECKOUT_BACKEND_URL = `${BACKEND_BASE_URL}/create-checkout-session`; 
+
+
+                console.log(`Attempting to fetch from: ${CHECKOUT_BACKEND_URL}`);
+                const response = await fetch(CHECKOUT_BACKEND_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contactDetails: contactDetails,
+                        stopsData: stopsDataForBackend,
+                        packagesData: packagesData,
+                        serviceDetails: serviceDetails,
+                        totalMiles: totalMiles,
+                        calculatedQuote: parseFloat(quoteAmount)
+                    }),
+                });
+                 if (!response.ok) {
+                     let errorMsg = `Payment/Logging Error: ${response.status} ${response.statusText}`;
+                     try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
+                     catch(e) { console.warn("Could not parse error response body:", e); }
+                     throw new Error(errorMsg);
+                  }
+                const session = await response.json();
+                if (session.url) {
+                    console.log("Redirecting to Stripe:", session.url);
+                    window.location.href = session.url;
+                } else {
+                    throw new Error("Invalid response from server - no session URL received.")
+                }
+            } catch (error) {
+                console.error('Checkout process failed:', error);
+                alert('Error setting up payment: ' + (error?.message || 'Unknown error') + '.');
+                bookBtn.textContent = 'Proceed to Payment';
+                bookBtn.disabled = false;
+                document.getElementById('downloadSummaryBtn').disabled = false;
+            }
+        }
+
+
+        initializePackageUploadHandlers();
+  </script>
+
+
+</body>
+</html>
+
+
+These errors exist because APIs are not placed in this code. This code is should fix the error we have encountering

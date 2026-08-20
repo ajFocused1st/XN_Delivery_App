@@ -1,0 +1,47 @@
+{
+  "contactDetails": {
+    "name": "Test Customer",
+    "email": "customer@example.com",
+    "phone": "555-123-4567",
+    "company": "Test Co"
+  },
+  "stopsData": [
+    {
+      "address": "123 Main St, Richmond, VA",
+      "loadUnload": "customer",
+      "stairs": false,
+      "floor": ""
+    },
+    {
+      "address": "456 Elm St, Richmond, VA",
+      "loadUnload": "driver",
+      "stairs": true,
+      "floor": "2"
+    }
+  ],
+  "packagesData": [
+    {
+      "qty": 2,
+      "desc": "Sample boxes",
+      "weight": 25,
+      "length": 12,
+      "width": 10,
+      "height": 8,
+      "unit": "inches",
+      "fileName": null
+    }
+  ],
+  "serviceDetails": {
+    "vehicleType": "cargo_van",
+    "pickupDate": "2025-09-10",
+    "pickupTime": "10:30",
+    "urgency": "standard_9pm",
+    "specialNotes": "Handle with care",
+    "insideDelivery": true,
+    "hazardousBio": false,
+    "fragileHandling": true,
+    "extraLaborer": false
+  },
+  "totalMiles": 15.6,
+  "calculatedQuote": 185.50
+}
