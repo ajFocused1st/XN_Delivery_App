@@ -4,12 +4,16 @@ require('dotenv').config();
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const cors = require('cors');
+const crypto = require('crypto');
 const { Pool } = require('pg'); // PostgreSQL client for Node.js
-const { sendQuoteNotification } = require('./pushover');
+const { sendBookingNotification, sendQuoteNotification } = require('./pushover');
+const { deriveSchedule } = require('./scheduling');
+const { normalizeEmail } = require('./email-validation');
+const { emailDomainAcceptsMail } = require('./email-domain');
 
 const app = express();
 
-const QUOTE_VERSION = '2026-08-11-v1';
+const QUOTE_VERSION = '2026-08-20-v2';
 
 const QUOTE_RULES = Object.freeze({
   vehicleRates: Object.freeze({
@@ -44,19 +48,19 @@ const QUOTE_RULES = Object.freeze({
     cargo_van_high_roof: Object.freeze({ label: 'Cargo Van (High Roof)', maxWeight: 3500, maxVolumeCubicFeet: 500, maxItemDimensionsInches: Object.freeze([70, 72, 144]) }),
     box_truck: Object.freeze({ label: 'Box Truck', maxWeight: 4000, maxVolumeCubicFeet: 900, maxItemDimensionsInches: Object.freeze([84, 88, 192]) }),
   }),
-  weightRate: 0.03,
+  weightRate: 0.05,
   maxTotalWeight: 4000,
   urgencyFees: Object.freeze({
     standard_9pm: 0,
-    asap_2hr: 65,
+    asap_2hr: 85,
     expedited_4hr: 50,
-    late_night: 75,
   }),
+  lateNightFee: 75,
   additionalStopFee: 3.50,
   extraLaborerFee: 35,
   stairFeePerFlight: 5,
   handlingRules: Object.freeze({
-    soloDriverMaxItemWeight: 50,
+    soloDriverMaxItemWeight: 100,
     assistedHandlingMaxItemWeight: 150,
     stairTeamWeightThreshold: 50,
     stairTeamLengthThreshold: 72,
@@ -79,6 +83,31 @@ function parseFiniteNumber(value, fieldName) {
 
 function isSelected(value) {
   return value === true || value === 1 || value === '1' || value === 'true' || value === 'on';
+}
+
+function generateQuoteId(now = new Date()) {
+  const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const randomPart = crypto.randomBytes(3).toString('hex').toUpperCase();
+  return `XN-${datePart}-${randomPart}`;
+}
+
+async function validateContactEmail(contactDetails, res) {
+  const normalizedEmail = normalizeEmail(contactDetails?.email);
+  if (!normalizedEmail) {
+    res.status(422).json({ status: 'error', message: 'Please enter a valid email address.' });
+    return null;
+  }
+  try {
+    if (!await emailDomainAcceptsMail(normalizedEmail)) {
+      res.status(422).json({ status: 'error', message: 'That email domain does not appear to have a working mail service.' });
+      return null;
+    }
+  } catch (error) {
+    console.error('Email domain lookup failed:', error.message);
+    res.status(503).json({ status: 'error', message: 'Email domain verification is temporarily unavailable. Please try again.' });
+    return null;
+  }
+  return { ...(contactDetails || {}), email: normalizedEmail };
 }
 
 function buildShipmentProfile(packagesData) {
@@ -162,9 +191,9 @@ function evaluateVehicleFit(vehicleType, shipmentProfile) {
   return { fits: reasons.length === 0, reasons };
 }
 
-function getVehicleRecommendation(shipmentProfile) {
+function getVehicleRecommendation(shipmentProfile, disabledVehicles = new Set()) {
   return QUOTE_RULES.vehicleCapacityOrder.find(vehicleType =>
-    evaluateVehicleFit(vehicleType, shipmentProfile).fits
+    !disabledVehicles.has(vehicleType) && evaluateVehicleFit(vehicleType, shipmentProfile).fits
   ) || null;
 }
 
@@ -231,7 +260,7 @@ function getDriverHandlingFee(totalWeight) {
   return 60;
 }
 
-function calculateAuthoritativeQuote(leadData) {
+function calculateAuthoritativeQuote(leadData, disabledVehicles = new Set()) {
   if (!leadData || typeof leadData !== 'object') {
     throw new Error('Quote details are required.');
   }
@@ -256,9 +285,12 @@ function calculateAuthoritativeQuote(leadData) {
   if (!mileageRate) {
     throw new Error('A valid vehicle type is required.');
   }
+  if (disabledVehicles.has(vehicleType)) {
+    throw new Error(`${QUOTE_RULES.vehicleCapacities[vehicleType].label} is temporarily unavailable. Select another enabled vehicle or contact dispatch.`);
+  }
 
   const vehicleFit = evaluateVehicleFit(vehicleType, shipmentProfile);
-  const recommendedVehicle = getVehicleRecommendation(shipmentProfile);
+  const recommendedVehicle = getVehicleRecommendation(shipmentProfile, disabledVehicles);
   if (!vehicleFit.fits) {
     const selectedLabel = QUOTE_RULES.vehicleCapacities[vehicleType].label;
     const recommendationText = recommendedVehicle
@@ -305,10 +337,8 @@ function calculateAuthoritativeQuote(leadData) {
     }
   }
 
-  const urgency = serviceDetails.urgency;
-  if (!Object.prototype.hasOwnProperty.call(QUOTE_RULES.urgencyFees, urgency)) {
-    throw new Error('A valid urgency option is required.');
-  }
+  const schedule = deriveSchedule(serviceDetails);
+  const urgency = schedule.serviceLevel;
 
   const mileageCost = totalMiles * mileageRate;
   const weightCost = totalWeight * QUOTE_RULES.weightRate;
@@ -324,6 +354,7 @@ function calculateAuthoritativeQuote(leadData) {
     ? QUOTE_RULES.extraLaborerFee
     : 0;
   const urgencyPremium = QUOTE_RULES.urgencyFees[urgency];
+  const afterHoursFee = schedule.afterHoursApplied ? QUOTE_RULES.lateNightFee : 0;
   const additionalStopFee = Math.max(0, stopsData.length - 2) * QUOTE_RULES.additionalStopFee;
   const baseCost = mileageCost + weightCost;
   const costAfterMultiplier = baseCost * servicesMultiplier;
@@ -333,6 +364,7 @@ function calculateAuthoritativeQuote(leadData) {
     totalStairCost +
     flatServiceFees +
     urgencyPremium +
+    afterHoursFee +
     additionalStopFee;
   const vehicleMinimum = QUOTE_RULES.vehicleMinimums[vehicleType];
   const minimumAdjustment = Math.max(0, vehicleMinimum - subtotalBeforeMinimum);
@@ -345,6 +377,10 @@ function calculateAuthoritativeQuote(leadData) {
     totalWeight: Number(totalWeight.toFixed(2)),
     totalVolumeCubicFeet: Number(shipmentProfile.totalVolumeCubicFeet.toFixed(2)),
     recommendedVehicle,
+    serviceLevel: schedule.serviceLevel,
+    serviceLabel: schedule.serviceLabel,
+    serviceWindowHours: schedule.windowHours,
+    afterHoursApplied: schedule.afterHoursApplied,
     breakdown: {
       mileageCost: Number(mileageCost.toFixed(2)),
       weightCost: Number(weightCost.toFixed(2)),
@@ -354,6 +390,7 @@ function calculateAuthoritativeQuote(leadData) {
       stairCost: Number(totalStairCost.toFixed(2)),
       flatServiceFees: Number(flatServiceFees.toFixed(2)),
       urgencyPremium: Number(urgencyPremium.toFixed(2)),
+      afterHoursFee: Number(afterHoursFee.toFixed(2)),
       additionalStopFee: Number(additionalStopFee.toFixed(2)),
       vehicleMinimum: Number(vehicleMinimum.toFixed(2)),
       minimumAdjustment: Number(minimumAdjustment.toFixed(2)),
@@ -393,6 +430,143 @@ app.use(cors({
   optionsSuccessStatus: 204,
 }));
 console.log('Applied CORS middleware. Allowed origins:', Array.from(allowedOrigins));
+
+// Stripe requires the untouched request bytes to verify webhook signatures.
+app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const webhookSecret = String(process.env.STRIPE_WEBHOOK_SECRET || '').trim();
+  if (!webhookSecret) {
+    console.error('STRIPE_WEBHOOK_SECRET is not configured.');
+    return res.status(503).send('Stripe webhook is not configured.');
+  }
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], webhookSecret);
+  } catch (error) {
+    console.warn('Stripe webhook signature verification failed:', error.message);
+    return res.status(400).send('Invalid Stripe webhook signature.');
+  }
+
+  if (!['checkout.session.completed', 'checkout.session.async_payment_succeeded'].includes(event.type)) {
+    return res.status(200).json({ received: true, ignored: true });
+  }
+
+  const session = event.data.object;
+  if (session.payment_status !== 'paid') {
+    return res.status(200).json({ received: true, awaitingPayment: true });
+  }
+
+  const quoteId = String(session.client_reference_id || session.metadata?.quote_id || '').trim().toUpperCase();
+  if (!/^XN-\d{8}-[A-F0-9]{6}$/.test(quoteId)) {
+    console.error(`Paid Stripe session ${session.id} did not contain a valid quote ID.`);
+    return res.status(422).send('Paid session is missing a valid quote ID.');
+  }
+
+  const client = await pool.connect();
+  let bookingLead;
+  let duplicate = false;
+  let notificationAlreadySent = false;
+  const paidAt = new Date((session.created || Math.floor(Date.now() / 1000)) * 1000).toISOString();
+  try {
+    await client.query('BEGIN');
+    const eventInsert = await client.query(
+      `INSERT INTO stripe_webhook_events (event_id, event_type)
+       VALUES ($1, $2)
+       ON CONFLICT (event_id) DO NOTHING
+       RETURNING event_id`,
+      [event.id, event.type]
+    );
+    if (eventInsert.rowCount === 0) {
+      duplicate = true;
+      const eventState = await client.query(
+        'SELECT notification_sent_at FROM stripe_webhook_events WHERE event_id = $1',
+        [event.id]
+      );
+      notificationAlreadySent = Boolean(eventState.rows[0]?.notification_sent_at);
+      if (!notificationAlreadySent) {
+        const leadResult = await client.query(
+          `SELECT * FROM leads
+           WHERE quote_id = $1 AND log_type = 'CalculatedQuote'
+           ORDER BY id DESC LIMIT 1`,
+          [quoteId]
+        );
+        bookingLead = leadResult.rows[0];
+      }
+      await client.query('COMMIT');
+    } else {
+      const leadResult = await client.query(
+        `SELECT * FROM leads
+         WHERE quote_id = $1 AND log_type = 'CalculatedQuote'
+         ORDER BY id DESC LIMIT 1
+         FOR UPDATE`,
+        [quoteId]
+      );
+      bookingLead = leadResult.rows[0];
+      if (!bookingLead) {
+        throw new Error(`No calculated quote was found for ${quoteId}.`);
+      }
+
+      await client.query(
+        `UPDATE leads
+         SET booking_status = 'BOOKED', payment_status = 'PAID',
+             stripe_session_id = $1, stripe_payment_intent_id = $2, paid_at = $3
+         WHERE quote_id = $4`,
+        [session.id, session.payment_intent || null, paidAt, quoteId]
+      );
+      await client.query('COMMIT');
+    }
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Stripe webhook booking update failed:', error);
+    return res.status(500).send('Booking update failed.');
+  } finally {
+    client.release();
+  }
+
+  if (notificationAlreadySent) {
+    return res.status(200).json({ received: true, duplicate: true });
+  }
+
+  if (!bookingLead) {
+    return res.status(500).send('Booking saved, but alert details could not be loaded.');
+  }
+
+  if (bookingLead) {
+    const notificationLead = {
+      ...(bookingLead.lead_payload || {}),
+      quoteId,
+      calculatedQuote: Number(bookingLead.calculated_quote),
+      totalMiles: Number(bookingLead.total_miles),
+    };
+    try {
+      await sendBookingNotification(notificationLead, {
+        leadId: bookingLead.id,
+        stripeSessionId: session.id,
+        paymentIntentId: session.payment_intent || null,
+        paidAt,
+      });
+      await pool.query(
+        `UPDATE stripe_webhook_events
+         SET notification_sent_at = CURRENT_TIMESTAMP,
+             notification_attempts = notification_attempts + 1
+         WHERE event_id = $1`,
+        [event.id]
+      );
+    } catch (notificationError) {
+      console.error(`Pushover booking notification failed for ${quoteId}:`, notificationError.message);
+      await pool.query(
+        `UPDATE stripe_webhook_events
+         SET notification_attempts = notification_attempts + 1
+         WHERE event_id = $1`,
+        [event.id]
+      ).catch(updateError => console.error('Unable to record notification retry:', updateError.message));
+      return res.status(500).send('Booking saved; notification delivery will be retried.');
+    }
+  }
+
+  return res.status(200).json({ received: true, duplicate });
+});
+
 app.use(express.json()); // To parse JSON request bodies
 
 // --- PostgreSQL Configuration ---
@@ -438,6 +612,8 @@ async function ensureLeadsTableExists() {
       vehicle_type VARCHAR(100),
       pickup_date VARCHAR(50),
       pickup_time VARCHAR(50),
+      delivery_date VARCHAR(50),
+      delivery_time VARCHAR(50),
       urgency VARCHAR(100),
       special_notes TEXT,
       inside_delivery BOOLEAN,
@@ -445,23 +621,104 @@ async function ensureLeadsTableExists() {
       bio_hazardous BOOLEAN,
       extra_laborer BOOLEAN,
       total_miles NUMERIC(10, 2),
-      calculated_quote NUMERIC(10, 2)
+      calculated_quote NUMERIC(10, 2),
+      quote_id VARCHAR(40),
+      booking_status VARCHAR(30),
+      payment_status VARCHAR(30),
+      stripe_session_id VARCHAR(255),
+      stripe_payment_intent_id VARCHAR(255),
+      paid_at TIMESTAMPTZ,
+      lead_payload JSONB
     );
   `;
   try {
     await pool.query(createTableQuery);
     await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS special_notes TEXT;');
-    console.log("Ensured 'leads' table and special_notes column exist in PostgreSQL database.");
+    await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS delivery_date VARCHAR(50);');
+    await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS delivery_time VARCHAR(50);');
+    await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS quote_id VARCHAR(40);');
+    await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS booking_status VARCHAR(30);');
+    await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS payment_status VARCHAR(30);');
+    await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS stripe_session_id VARCHAR(255);');
+    await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS stripe_payment_intent_id VARCHAR(255);');
+    await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;');
+    await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS lead_payload JSONB;');
+    await pool.query('CREATE INDEX IF NOT EXISTS leads_quote_id_idx ON leads (quote_id);');
+    await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS leads_calculated_quote_id_unique ON leads (quote_id) WHERE log_type = 'CalculatedQuote' AND quote_id IS NOT NULL;");
+    await pool.query('DROP INDEX IF EXISTS leads_stripe_session_id_idx;');
+    await pool.query('CREATE INDEX IF NOT EXISTS leads_stripe_session_id_idx ON leads (stripe_session_id) WHERE stripe_session_id IS NOT NULL;');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+        event_id VARCHAR(255) PRIMARY KEY,
+        event_type VARCHAR(100) NOT NULL,
+        processed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        notification_sent_at TIMESTAMPTZ,
+        notification_attempts INTEGER NOT NULL DEFAULT 0
+      );
+    `);
+    await pool.query('ALTER TABLE stripe_webhook_events ADD COLUMN IF NOT EXISTS notification_sent_at TIMESTAMPTZ;');
+    await pool.query('ALTER TABLE stripe_webhook_events ADD COLUMN IF NOT EXISTS notification_attempts INTEGER NOT NULL DEFAULT 0;');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS vehicle_availability (
+        vehicle_type VARCHAR(100) PRIMARY KEY,
+        vehicle_label VARCHAR(150) NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    for (const vehicleType of QUOTE_RULES.vehicleCapacityOrder) {
+      await pool.query(
+        `INSERT INTO vehicle_availability (vehicle_type, vehicle_label)
+         VALUES ($1, $2)
+         ON CONFLICT (vehicle_type) DO UPDATE SET vehicle_label = EXCLUDED.vehicle_label`,
+        [vehicleType, QUOTE_RULES.vehicleCapacities[vehicleType].label]
+      );
+    }
+    console.log("Ensured quote, booking, and Stripe webhook database fields exist.");
   } catch (err) {
     console.error("Error ensuring 'leads' table exists in PostgreSQL:", err);
-    // This is a critical error for the application's logging functionality.
-    // You might want to throw the error or handle it more gracefully.
+    throw err;
   }
 }
 
-// Ensure table exists when the server starts
-ensureLeadsTableExists().catch(err => console.error("Failed to initialize database table:", err));
+async function getVehicleAvailability() {
+  const result = await pool.query(
+    `SELECT vehicle_type, vehicle_label, enabled, updated_at
+     FROM vehicle_availability
+     ORDER BY array_position($1::text[], vehicle_type)`,
+    [QUOTE_RULES.vehicleCapacityOrder]
+  );
+  return result.rows.map(row => ({
+    vehicleType: row.vehicle_type,
+    label: row.vehicle_label,
+    enabled: row.enabled,
+    updatedAt: row.updated_at,
+  }));
+}
 
+async function getDisabledVehicles() {
+  const availability = await getVehicleAvailability();
+  return new Set(availability.filter(vehicle => !vehicle.enabled).map(vehicle => vehicle.vehicleType));
+}
+
+function adminTokenMatches(req) {
+  const configuredToken = String(process.env.VEHICLE_ADMIN_TOKEN || '').trim();
+  const suppliedToken = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  if (!configuredToken || !suppliedToken) return false;
+  const configured = Buffer.from(configuredToken);
+  const supplied = Buffer.from(suppliedToken);
+  return configured.length === supplied.length && crypto.timingSafeEqual(configured, supplied);
+}
+
+function requireVehicleAdmin(req, res, next) {
+  if (!process.env.VEHICLE_ADMIN_TOKEN) {
+    return res.status(503).json({ status: 'error', message: 'Vehicle administration is not configured.' });
+  }
+  if (!adminTokenMatches(req)) {
+    return res.status(401).json({ status: 'error', message: 'Invalid admin key.' });
+  }
+  return next();
+}
 
 // --- Helper function to log data to PostgreSQL ---
 async function logLeadDataToDB(leadData, logType = "CalculatedQuote") {
@@ -504,6 +761,8 @@ async function logLeadDataToDB(leadData, logType = "CalculatedQuote") {
   const vehicleType = leadData.serviceDetails?.vehicleType || null;
   const pickupDate = leadData.serviceDetails?.pickupDate || null;
   const pickupTime = leadData.serviceDetails?.pickupTime || null;
+  const deliveryDate = leadData.serviceDetails?.deliveryDate || null;
+  const deliveryTime = leadData.serviceDetails?.deliveryTime || null;
   const urgency = leadData.serviceDetails?.urgency || null;
   const specialNotes = leadData.serviceDetails?.specialNotes || null;
   const insideDelivery = leadData.serviceDetails?.insideDelivery || false;
@@ -514,21 +773,33 @@ async function logLeadDataToDB(leadData, logType = "CalculatedQuote") {
   // Ensure numerical values are correctly parsed or null
   const totalMiles = (leadData.totalMiles !== undefined && leadData.totalMiles !== null) ? parseFloat(leadData.totalMiles) : null;
   const calculatedQuoteValue = (leadData.calculatedQuote !== undefined && leadData.calculatedQuote !== null) ? parseFloat(leadData.calculatedQuote) : null;
+  const quoteId = leadData.quoteId || null;
+  const bookingStatus = leadData.bookingStatus || (logType === 'CheckoutAttempt' ? 'CHECKOUT_STARTED' : 'QUOTED');
+  const paymentStatus = leadData.paymentStatus || (logType === 'CheckoutAttempt' ? 'PENDING' : 'UNPAID');
+  const stripeSessionId = leadData.stripeSessionId || null;
+  const stripePaymentIntentId = leadData.stripePaymentIntentId || null;
+  const paidAt = leadData.paidAt || null;
+  const leadPayload = JSON.stringify(leadData);
 
   const insertQuery = `
     INSERT INTO leads (
       log_type, contact_name, contact_email, contact_phone, contact_company,
-      all_stops_details, package_details, vehicle_type, pickup_date, pickup_time,
+      all_stops_details, package_details, vehicle_type, pickup_date, pickup_time, delivery_date, delivery_time,
       urgency, special_notes, inside_delivery, hazardous, bio_hazardous, extra_laborer,
-      total_miles, calculated_quote
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
-    RETURNING id;
+      total_miles, calculated_quote, quote_id, booking_status, payment_status,
+      stripe_session_id, stripe_payment_intent_id, paid_at, lead_payload
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+      $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
+    )
+    RETURNING id, quote_id;
   `;
   const values = [
     logType, contactName, contactEmail, contactPhone, contactCompany,
-    allStopsString, packagesStr, vehicleType, pickupDate, pickupTime,
+    allStopsString, packagesStr, vehicleType, pickupDate, pickupTime, deliveryDate, deliveryTime,
     urgency, specialNotes, insideDelivery, hazardous, bioHazardous, extraLaborer,
-    totalMiles, calculatedQuoteValue
+    totalMiles, calculatedQuoteValue, quoteId, bookingStatus, paymentStatus,
+    stripeSessionId, stripePaymentIntentId, paidAt, leadPayload
   ];
 
   try {
@@ -541,11 +812,59 @@ async function logLeadDataToDB(leadData, logType = "CalculatedQuote") {
   }
 }
 
-// --- Authoritative quote endpoint (no logging or payment side effects) ---
-app.post('/calculate-quote', (req, res) => {
+// --- Public and protected vehicle-availability endpoints ---
+app.get('/vehicle-availability', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
-    const quote = calculateAuthoritativeQuote(req.body);
+    return res.status(200).json({ status: 'success', vehicles: await getVehicleAvailability() });
+  } catch (error) {
+    console.error('Unable to load vehicle availability:', error);
+    return res.status(503).json({ status: 'error', message: 'Vehicle availability is temporarily unavailable.' });
+  }
+});
+
+app.get('/admin/vehicle-availability', requireVehicleAdmin, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    return res.status(200).json({ status: 'success', vehicles: await getVehicleAvailability() });
+  } catch (error) {
+    console.error('Unable to load admin vehicle availability:', error);
+    return res.status(500).json({ status: 'error', message: 'Could not load vehicle availability.' });
+  }
+});
+
+app.put('/admin/vehicle-availability/:vehicleType', requireVehicleAdmin, async (req, res) => {
+  const vehicleType = String(req.params.vehicleType || '').trim();
+  if (!QUOTE_RULES.vehicleCapacityOrder.includes(vehicleType)) {
+    return res.status(404).json({ status: 'error', message: 'Vehicle type was not found.' });
+  }
+  if (typeof req.body?.enabled !== 'boolean') {
+    return res.status(422).json({ status: 'error', message: 'Enabled must be true or false.' });
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE vehicle_availability
+       SET enabled = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE vehicle_type = $2
+       RETURNING vehicle_type, vehicle_label, enabled, updated_at`,
+      [req.body.enabled, vehicleType]
+    );
+    const row = result.rows[0];
+    return res.status(200).json({
+      status: 'success',
+      vehicle: { vehicleType: row.vehicle_type, label: row.vehicle_label, enabled: row.enabled, updatedAt: row.updated_at },
+    });
+  } catch (error) {
+    console.error(`Unable to update ${vehicleType} availability:`, error);
+    return res.status(500).json({ status: 'error', message: 'Vehicle availability could not be updated.' });
+  }
+});
+
+// --- Authoritative quote endpoint (no logging or payment side effects) ---
+app.post('/calculate-quote', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const quote = calculateAuthoritativeQuote(req.body, await getDisabledVehicles());
     return res.status(200).json({
       status: 'success',
       quote,
@@ -568,10 +887,13 @@ app.post('/log-calculated-quote', async (req, res) => {
   if (!leadData || !leadData.contactDetails) {
     return res.status(400).json({ status: 'error', message: 'Incomplete lead data received.' });
   }
+  const normalizedContact = await validateContactEmail(leadData.contactDetails, res);
+  if (!normalizedContact) return;
+  leadData.contactDetails = normalizedContact;
 
   let authoritativeQuote;
   try {
-    authoritativeQuote = calculateAuthoritativeQuote(leadData);
+    authoritativeQuote = calculateAuthoritativeQuote(leadData, await getDisabledVehicles());
   } catch (error) {
     console.warn('Invalid quote details received for logging:', error.message);
     return res.status(422).json({ status: 'error', message: error.message });
@@ -587,6 +909,14 @@ app.post('/log-calculated-quote', async (req, res) => {
 
   const verifiedLeadData = {
     ...leadData,
+    quoteId: generateQuoteId(),
+    serviceDetails: {
+      ...(leadData.serviceDetails || {}),
+      urgency: authoritativeQuote.serviceLevel,
+      urgencyLabel: authoritativeQuote.serviceLabel,
+      afterHoursApplied: authoritativeQuote.afterHoursApplied,
+      serviceWindowHours: authoritativeQuote.serviceWindowHours,
+    },
     totalMiles: authoritativeQuote.totalMiles,
     calculatedQuote: authoritativeQuote.total,
   };
@@ -609,6 +939,7 @@ app.post('/log-calculated-quote', async (req, res) => {
       message: 'Quote data verified and logged.',
       calculatedQuote: authoritativeQuote.total,
       quoteVersion: authoritativeQuote.quoteVersion,
+      quoteId: verifiedLeadData.quoteId,
     });
   } catch (error) {
     return res.status(500).json({
@@ -631,10 +962,13 @@ app.post('/create-checkout-session', async (req, res) => {
   ) {
     return res.status(400).json({ error: 'Incomplete or invalid contact details received.' });
   }
+  const normalizedContact = await validateContactEmail(leadData.contactDetails, res);
+  if (!normalizedContact) return;
+  leadData.contactDetails = normalizedContact;
 
   let authoritativeQuote;
   try {
-    authoritativeQuote = calculateAuthoritativeQuote(leadData);
+    authoritativeQuote = calculateAuthoritativeQuote(leadData, await getDisabledVehicles());
   } catch (error) {
     console.warn('Invalid quote details received for checkout:', error.message);
     return res.status(422).json({ error: error.message });
@@ -648,17 +982,45 @@ app.post('/create-checkout-session', async (req, res) => {
     });
   }
 
+  const quoteId = String(leadData.quoteId || '').trim().toUpperCase();
+  if (!/^XN-\d{8}-[A-F0-9]{6}$/.test(quoteId)) {
+    return res.status(409).json({ error: 'Please recalculate the quote before booking.' });
+  }
+
+  try {
+    const quoteRecord = await pool.query(
+      `SELECT contact_email, calculated_quote
+       FROM leads
+       WHERE quote_id = $1 AND log_type = 'CalculatedQuote'
+       ORDER BY id DESC LIMIT 1`,
+      [quoteId]
+    );
+    const savedQuote = quoteRecord.rows[0];
+    const emailMatches = savedQuote &&
+      String(savedQuote.contact_email || '').toLowerCase() === String(leadData.contactDetails.email || '').toLowerCase();
+    const amountMatches = savedQuote &&
+      Math.abs(Number(savedQuote.calculated_quote) - authoritativeQuote.total) <= 0.01;
+    if (!emailMatches || !amountMatches) {
+      return res.status(409).json({ error: 'This quote could not be matched. Please recalculate it before booking.' });
+    }
+  } catch (databaseError) {
+    console.error('Unable to verify quote correlation before checkout:', databaseError);
+    return res.status(503).json({ error: 'The quote could not be verified for booking. Please try again.' });
+  }
+
   const verifiedLeadData = {
     ...leadData,
+    quoteId,
+    serviceDetails: {
+      ...(leadData.serviceDetails || {}),
+      urgency: authoritativeQuote.serviceLevel,
+      urgencyLabel: authoritativeQuote.serviceLabel,
+      afterHoursApplied: authoritativeQuote.afterHoursApplied,
+      serviceWindowHours: authoritativeQuote.serviceWindowHours,
+    },
     totalMiles: authoritativeQuote.totalMiles,
     calculatedQuote: authoritativeQuote.total,
   };
-
-  try {
-    await logLeadDataToDB(verifiedLeadData, 'CheckoutAttempt');
-  } catch (logError) {
-    console.error('Error logging lead data during checkout attempt; Stripe checkout will continue:', logError);
-  }
 
   const amountInCents = Math.round(authoritativeQuote.total * 100);
   if (amountInCents < 50) {
@@ -694,12 +1056,32 @@ app.post('/create-checkout-session', async (req, res) => {
       success_url: successUrl,
       cancel_url: cancelUrl,
       customer_email: customerEmail || undefined,
+      client_reference_id: quoteId,
+      metadata: {
+        quote_id: quoteId,
+        vehicle_type: String(verifiedLeadData.serviceDetails.vehicleType || '').substring(0, 100),
+      },
     });
     console.log('Stripe Session Created:', session.id);
+    try {
+      await logLeadDataToDB({
+        ...verifiedLeadData,
+        stripeSessionId: session.id,
+      }, 'CheckoutAttempt');
+      await pool.query(
+        `UPDATE leads
+         SET booking_status = 'CHECKOUT_STARTED', stripe_session_id = $1
+         WHERE quote_id = $2 AND log_type = 'CalculatedQuote'`,
+        [session.id, quoteId]
+      );
+    } catch (logError) {
+      console.error('Stripe Checkout was created, but its database correlation failed:', logError);
+    }
     return res.json({
       url: session.url,
       calculatedQuote: authoritativeQuote.total,
       quoteVersion: authoritativeQuote.quoteVersion,
+      quoteId,
     });
   } catch (stripeError) {
     console.error('Stripe API Error:', stripeError);
@@ -714,4 +1096,9 @@ app.get('/', (req, res) => {
 
 // Start the server
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Backend server listening on port ${PORT}`));
+ensureLeadsTableExists()
+  .then(() => app.listen(PORT, () => console.log(`Backend server listening on port ${PORT}`)))
+  .catch(error => {
+    console.error('Failed to initialize the quote database; backend was not started:', error);
+    process.exitCode = 1;
+  });
