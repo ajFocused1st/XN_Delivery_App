@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Vehicle Availability | Xpedite Now</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #f4f7fb; color: #172033; }
+    main { width: min(680px, calc(100% - 32px)); margin: 48px auto; }
+    .card { background: white; border: 1px solid #dce3ee; border-radius: 18px; padding: 28px; box-shadow: 0 18px 45px rgba(20, 45, 80, .1); }
+    h1 { margin: 0 0 8px; font-size: clamp(1.6rem, 5vw, 2.2rem); color: #173b83; }
+    p { line-height: 1.55; }
+    label { display: block; margin-bottom: 8px; font-weight: 700; }
+    input[type="password"] { width: 100%; padding: 13px 14px; border: 1px solid #aab6c8; border-radius: 10px; font: inherit; }
+    button { border: 0; border-radius: 10px; padding: 12px 18px; font: inherit; font-weight: 750; cursor: pointer; }
+    .primary { margin-top: 14px; color: white; background: #173b83; }
+    .secondary { color: #173b83; background: #e8eef9; }
+    .toolbar { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 18px; }
+    .vehicle-list { display: grid; gap: 12px; }
+    .vehicle { display: flex; justify-content: space-between; gap: 18px; align-items: center; padding: 16px; border: 1px solid #dce3ee; border-radius: 12px; }
+    .vehicle strong { display: block; }
+    .status { margin-top: 4px; font-size: .9rem; color: #59667a; }
+    .switch { position: relative; width: 52px; height: 30px; flex: 0 0 auto; }
+    .switch input { position: absolute; opacity: 0; }
+    .slider { position: absolute; inset: 0; border-radius: 999px; background: #aab3c2; transition: .2s; }
+    .slider::before { content: ""; position: absolute; width: 22px; height: 22px; left: 4px; top: 4px; border-radius: 50%; background: white; transition: .2s; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+    input:checked + .slider { background: #16814c; }
+    input:checked + .slider::before { transform: translateX(22px); }
+    input:focus-visible + .slider { outline: 3px solid #ff6a3d; outline-offset: 2px; }
+    #message { min-height: 24px; font-weight: 650; }
+    .error { color: #a51d2d; }
+    .success { color: #116b40; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card" aria-labelledby="pageTitle">
+      <h1 id="pageTitle">Vehicle Availability</h1>
+      <p>Turn a vehicle off when it cannot be booked. Changes take effect immediately in the public quote form and backend.</p>
+
+      <form id="loginForm">
+        <label for="adminKey">Admin key</label>
+        <input id="adminKey" type="password" autocomplete="current-password" required />
+        <button class="primary" type="submit">Open Vehicle Controls</button>
+      </form>
+
+      <div id="controls" hidden>
+        <div class="toolbar">
+          <strong>Available for instant quotes</strong>
+          <button id="logoutButton" class="secondary" type="button">Lock</button>
+        </div>
+        <div id="vehicleList" class="vehicle-list"></div>
+      </div>
+      <p id="message" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <script>
+    'use strict';
+    const BACKEND_BASE_URL = 'https://delivery-quote-backend.onrender.com';
+    const TOKEN_KEY = 'xnVehicleAdminToken';
+    const loginForm = document.getElementById('loginForm');
+    const controls = document.getElementById('controls');
+    const vehicleList = document.getElementById('vehicleList');
+    const message = document.getElementById('message');
+
+    function showMessage(text, type = '') {
+      message.textContent = text;
+      message.className = type;
+    }
+
+    async function adminRequest(path, options = {}) {
+      const token = sessionStorage.getItem(TOKEN_KEY) || '';
+      const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
+        ...options,
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          ...(options.headers || {}),
+        },
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.message || `Request failed (${response.status}).`);
+      return result;
+    }
+
+    function renderVehicles(vehicles) {
+      vehicleList.replaceChildren();
+      vehicles.forEach(vehicle => {
+        const row = document.createElement('div');
+        row.className = 'vehicle';
+        const text = document.createElement('div');
+        const label = document.createElement('strong');
+        const status = document.createElement('span');
+        label.textContent = vehicle.label;
+        status.className = 'status';
+        status.textContent = vehicle.enabled ? 'Customers can select this vehicle' : 'Temporarily unavailable';
+        text.append(label, status);
+
+        const switchLabel = document.createElement('label');
+        switchLabel.className = 'switch';
+        switchLabel.setAttribute('aria-label', `${vehicle.label} availability`);
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = vehicle.enabled;
+        const slider = document.createElement('span');
+        slider.className = 'slider';
+        input.addEventListener('change', async () => {
+          input.disabled = true;
+          showMessage(`Updating ${vehicle.label}…`);
+          try {
+            const result = await adminRequest(`/admin/vehicle-availability/${encodeURIComponent(vehicle.vehicleType)}`, {
+              method: 'PUT',
+              body: JSON.stringify({ enabled: input.checked }),
+            });
+            status.textContent = result.vehicle.enabled ? 'Customers can select this vehicle' : 'Temporarily unavailable';
+            showMessage(`${vehicle.label} is now ${result.vehicle.enabled ? 'available' : 'unavailable'}.`, 'success');
+          } catch (error) {
+            input.checked = !input.checked;
+            showMessage(error.message, 'error');
+          } finally {
+            input.disabled = false;
+          }
+        });
+        switchLabel.append(input, slider);
+        row.append(text, switchLabel);
+        vehicleList.appendChild(row);
+      });
+    }
+
+    async function loadControls() {
+      showMessage('Loading vehicle availability…');
+      try {
+        const result = await adminRequest('/admin/vehicle-availability');
+        renderVehicles(result.vehicles || []);
+        loginForm.hidden = true;
+        controls.hidden = false;
+        showMessage('Vehicle controls loaded.', 'success');
+      } catch (error) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        loginForm.hidden = false;
+        controls.hidden = true;
+        showMessage(error.message, 'error');
+      }
+    }
+
+    loginForm.addEventListener('submit', event => {
+      event.preventDefault();
+      sessionStorage.setItem(TOKEN_KEY, document.getElementById('adminKey').value.trim());
+      document.getElementById('adminKey').value = '';
+      void loadControls();
+    });
+    document.getElementById('logoutButton').addEventListener('click', () => {
+      sessionStorage.removeItem(TOKEN_KEY);
+      controls.hidden = true;
+      loginForm.hidden = false;
+      showMessage('Vehicle controls locked.');
+    });
+    if (sessionStorage.getItem(TOKEN_KEY)) void loadControls();
+  </script>
+</body>
+</html>
